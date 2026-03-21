@@ -25,14 +25,15 @@ public class DefaultRoomLeaveService implements RoomLeaveService {
 
 		Room updated = new Room(
 			room.roomId(),
-			room.roomType(),
 			room.roomCode(),
-			room.ownerEngineId(),
-			room.state(),
+			room.roomType(),
 			participants,
+			room.state(),
+			room.createdAt(),
 			room.hostUserId(),
 			room.settings(),
-			room.game(),
+			room.currentGame(),
+			room.ownerEngineId(),
 			room.version() + 1,
 			room.capacity()
 		);

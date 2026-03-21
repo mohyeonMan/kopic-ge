@@ -1,18 +1,20 @@
 package io.jhpark.kopic.ge.room.domain;
 
-import io.jhpark.kopic.ge.game.domain.GameRuntime;
+import io.jhpark.kopic.ge.game.domain.Game;
+import java.time.Instant;
 import java.util.Map;
 
 public record Room(
 	String roomId,
-	RoomType roomType,
 	String roomCode,
-	String ownerEngineId,
-	RoomState state,
+	RoomType roomType,
 	Map<String, Participant> participants,
+	RoomState state,
+	Instant createdAt,
 	String hostUserId,
 	GameSettings settings,
-	GameRuntime game,
+	Game currentGame,
+	String ownerEngineId,
 	long version,
 	int capacity
 ) {

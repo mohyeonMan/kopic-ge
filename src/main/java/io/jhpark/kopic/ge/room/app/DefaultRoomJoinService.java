@@ -1,6 +1,7 @@
 package io.jhpark.kopic.ge.room.app;
 
 import io.jhpark.kopic.ge.room.domain.Participant;
+import io.jhpark.kopic.ge.room.domain.ParticipantStatus;
 import io.jhpark.kopic.ge.room.domain.Room;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -24,18 +25,19 @@ public class DefaultRoomJoinService implements RoomJoinService {
 		if (!participants.containsKey(userId) && participants.size() >= room.capacity()) {
 			throw new IllegalStateException("room is full");
 		}
-		participants.put(userId, new Participant(userId, name));
+		participants.put(userId, new Participant(userId, name, ParticipantStatus.ACTIVE, null));
 
 		Room updated = new Room(
 			room.roomId(),
-			room.roomType(),
 			room.roomCode(),
-			room.ownerEngineId(),
-			room.state(),
+			room.roomType(),
 			participants,
+			room.state(),
+			room.createdAt(),
 			room.hostUserId(),
 			room.settings(),
-			room.game(),
+			room.currentGame(),
+			room.ownerEngineId(),
 			room.version() + 1,
 			room.capacity()
 		);

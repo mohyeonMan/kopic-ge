@@ -2,17 +2,16 @@ package io.jhpark.kopic.ge.game.domain;
 
 import io.jhpark.kopic.ge.room.domain.GameSettings;
 import java.time.Instant;
-import java.util.Set;
 
-public record GameRuntime(
+public record Game(
 	String gameId,
+	String roomId,
 	GameStatus status,
 	GameSettings settings,
-	RoundRuntime round,
-	int turn,
-	TurnRuntime turnState,
 	ScoreBoard scores,
-	Set<String> correctUsersInTurn,
+	Round currentRound,
+	Instant startedAt,
+	Instant endedAt,
 	Instant resultViewUntil
 ) {
 }

@@ -3,9 +3,11 @@ package io.jhpark.kopic.ge.room.app;
 import io.jhpark.kopic.ge.room.domain.EndMode;
 import io.jhpark.kopic.ge.room.domain.GameSettings;
 import io.jhpark.kopic.ge.room.domain.Participant;
+import io.jhpark.kopic.ge.room.domain.ParticipantStatus;
 import io.jhpark.kopic.ge.room.domain.Room;
 import io.jhpark.kopic.ge.room.domain.RoomState;
 import io.jhpark.kopic.ge.room.domain.RoomType;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -33,18 +35,19 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 		String roomId = "r-" + UUID.randomUUID().toString().substring(0, 8);
 		String roomCode = UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase(Locale.ROOT);
 		Map<String, Participant> participants = new LinkedHashMap<>();
-		participants.put(userId, new Participant(userId, name));
+		participants.put(userId, new Participant(userId, name, ParticipantStatus.ACTIVE, null));
 
 		Room room = new Room(
 			roomId,
-			RoomType.PRIVATE,
 			roomCode,
-			engineId,
-			RoomState.LOBBY,
+			RoomType.PRIVATE,
 			participants,
+			RoomState.LOBBY,
+			Instant.now(),
 			userId,
 			new GameSettings(3, 20, GameSettings.FIXED_WORD_CHOICE_SEC, 3, EndMode.FIRST_CORRECT),
 			null,
+			engineId,
 			1L,
 			capacity
 		);
@@ -56,18 +59,19 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 	public Room createRandomRoom(String engineId, String userId, String name) {
 		String roomId = "r-" + UUID.randomUUID().toString().substring(0, 8);
 		Map<String, Participant> participants = new LinkedHashMap<>();
-		participants.put(userId, new Participant(userId, name));
+		participants.put(userId, new Participant(userId, name, ParticipantStatus.ACTIVE, null));
 
 		Room room = new Room(
 			roomId,
-			RoomType.RANDOM,
 			null,
-			engineId,
-			RoomState.LOBBY,
+			RoomType.RANDOM,
 			participants,
+			RoomState.LOBBY,
+			Instant.now(),
 			null,
 			new GameSettings(3, 20, GameSettings.FIXED_WORD_CHOICE_SEC, 3, EndMode.FIRST_CORRECT),
 			null,
+			engineId,
 			1L,
 			RANDOM_CAPACITY
 		);

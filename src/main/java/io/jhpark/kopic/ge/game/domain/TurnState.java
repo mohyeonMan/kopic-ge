@@ -1,6 +1,6 @@
 package io.jhpark.kopic.ge.game.domain;
 
-public enum TurnPhase {
+public enum TurnState {
 	WORD_CHOICE,
 	DRAWING,
 	ENDED
