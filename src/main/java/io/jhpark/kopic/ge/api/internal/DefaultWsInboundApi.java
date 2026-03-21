@@ -7,11 +7,11 @@ import io.jhpark.kopic.ge.command.dto.SessionLifecycleEvent;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DefaultEngineCommandApi implements EngineCommandApi {
+public class DefaultWsInboundApi implements WsInboundApi {
 
 	private final EngineCommandDispatcher engineCommandDispatcher;
 
-	public DefaultEngineCommandApi(EngineCommandDispatcher engineCommandDispatcher) {
+	public DefaultWsInboundApi(EngineCommandDispatcher engineCommandDispatcher) {
 		this.engineCommandDispatcher = engineCommandDispatcher;
 	}
 
