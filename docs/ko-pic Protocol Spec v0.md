@@ -1,4 +1,4 @@
-﻿# ko-pic Protocol Spec v0 (MVP v0.2)
+# ko-pic Protocol Spec v0 (MVP v0.2)
 
 ## 1. 목적
 

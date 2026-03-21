@@ -7,23 +7,18 @@ import io.jhpark.kopic.ge.command.dto.EngineEnvelopeRequest;
 import io.jhpark.kopic.ge.command.dto.SessionLifecycleEvent;
 import io.jhpark.kopic.ge.command.dto.SessionLifecycleType;
 import io.jhpark.kopic.ge.common.error.EngineRejectedException;
-import io.jhpark.kopic.ge.game.app.DrawCommandService;
-import io.jhpark.kopic.ge.game.app.GameStartService;
-import io.jhpark.kopic.ge.game.app.GuessCommandService;
-import io.jhpark.kopic.ge.game.app.SnapshotService;
 import io.jhpark.kopic.ge.game.domain.Stroke;
 import io.jhpark.kopic.ge.game.domain.StrokeTool;
-import io.jhpark.kopic.ge.outbound.app.OutboundPublisher;
-import io.jhpark.kopic.ge.outbound.dto.TargetedDelivery;
-import io.jhpark.kopic.ge.room.app.RoomJoinService;
-import io.jhpark.kopic.ge.room.app.RoomLeaveService;
-import io.jhpark.kopic.ge.room.domain.EndMode;
-import io.jhpark.kopic.ge.room.domain.GameSettings;
-
 import java.util.ArrayList;
 import java.util.List;
+import io.jhpark.kopic.ge.room.app.RoomSlotRepository;
+import io.jhpark.kopic.ge.room.domain.Participant;
+import io.jhpark.kopic.ge.room.domain.ParticipantStatus;
+import io.jhpark.kopic.ge.room.domain.Room;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class DefaultEngineCommandDispatcher implements EngineCommandDispatcher {
 
@@ -35,32 +30,14 @@ public class DefaultEngineCommandDispatcher implements EngineCommandDispatcher {
 	private static final int EVENT_GUESS_SUBMIT = 204;
 
 	private final CommandValidator commandValidator;
-	private final RoomJoinService roomJoinService;
-	private final RoomLeaveService roomLeaveService;
-	private final GameStartService gameStartService;
-	private final DrawCommandService drawCommandService;
-	private final GuessCommandService guessCommandService;
-	private final SnapshotService snapshotService;
-	private final OutboundPublisher outboundPublisher;
+	private final RoomSlotRepository roomSlotRepository;
 
 	public DefaultEngineCommandDispatcher(
 		CommandValidator commandValidator,
-		RoomJoinService roomJoinService,
-		RoomLeaveService roomLeaveService,
-		GameStartService gameStartService,
-		DrawCommandService drawCommandService,
-		GuessCommandService guessCommandService,
-		SnapshotService snapshotService,
-		OutboundPublisher outboundPublisher
+		RoomSlotRepository roomSlotRepository
 	) {
 		this.commandValidator = commandValidator;
-		this.roomJoinService = roomJoinService;
-		this.roomLeaveService = roomLeaveService;
-		this.gameStartService = gameStartService;
-		this.drawCommandService = drawCommandService;
-		this.guessCommandService = guessCommandService;
-		this.snapshotService = snapshotService;
-		this.outboundPublisher = outboundPublisher;
+		this.roomSlotRepository = roomSlotRepository;
 	}
 
 	@Override
@@ -68,47 +45,9 @@ public class DefaultEngineCommandDispatcher implements EngineCommandDispatcher {
 		try {
 			commandValidator.validateEnvelope(request.envelope());
 			switch (request.envelope().e()) {
-				case EVENT_ROOM_LEAVE -> roomLeaveService.leave(request.roomId(), request.userId());
-				case EVENT_GAME_START_REQUEST -> {
-					var payload = request.envelope().p();
-					GameSettings settings = new GameSettings(
-						payload.path("roundCount").asInt(3),
-						payload.path("drawSec").asInt(20),
-						GameSettings.FIXED_WORD_CHOICE_SEC,
-						payload.path("wordChoiceCount").asInt(3),
-						EndMode.valueOf(payload.path("endMode").asText("FIRST_CORRECT"))
-					);
-					gameStartService.startGame(request.roomId(), request.userId(), settings, request.envelope().rid());
-				}
-				case EVENT_GAME_SNAPSHOT_REQUEST -> outboundPublisher.publish(List.of(
-					new TargetedDelivery(request.userId(), snapshotService.buildSnapshot(request.roomId(), request.envelope().rid()))
-				));
-				case EVENT_DRAW_STROKE -> {
-					var payload = request.envelope().p();
-					Stroke stroke = toStroke(payload);
-					drawCommandService.drawStroke(
-						request.roomId(),
-						request.userId(),
-						payload.path("turnId").asText(),
-						stroke,
-						request.envelope().rid()
-					);
-				}
-				case EVENT_DRAW_CLEAR -> {
-					var payload = request.envelope().p();
-					drawCommandService.clearCanvas(
-						request.roomId(),
-						request.userId(),
-						payload.path("turnId").asText(),
-						request.envelope().rid()
-					);
-				}
-				case EVENT_GUESS_SUBMIT -> guessCommandService.submitGuess(
-					request.roomId(),
-					request.userId(),
-					request.envelope().p().path("text").asText(),
-					request.envelope().rid()
-				);
+				case EVENT_ROOM_LEAVE -> leaveRoom(request.roomId(), request.userId());
+				case EVENT_GAME_START_REQUEST, EVENT_GAME_SNAPSHOT_REQUEST, EVENT_DRAW_STROKE, EVENT_DRAW_CLEAR, EVENT_GUESS_SUBMIT ->
+					throw new EngineRejectedException("command flow is pending handler migration", EngineAckReason.REJECTED);
 				default -> throw new EngineRejectedException("unsupported event", EngineAckReason.REJECTED);
 			}
 			return EngineAck.acceptedAck();
@@ -125,19 +64,37 @@ public class DefaultEngineCommandDispatcher implements EngineCommandDispatcher {
 	public EngineAck handleSessionLifecycle(SessionLifecycleEvent event) {
 		try {
 			if (event.type() == SessionLifecycleType.CONNECTED) {
-				roomJoinService.join(event.roomId(), event.userId(), event.userId());
-				outboundPublisher.publish(List.of(
-					new TargetedDelivery(event.userId(), snapshotService.buildSnapshot(event.roomId(), null))
-				));
+				joinRoom(event.roomId(), event.userId(), event.userId());
 			} else {
-				roomLeaveService.leave(event.roomId(), event.userId());
+				leaveRoom(event.roomId(), event.userId());
 			}
 			return EngineAck.acceptedAck();
 		} catch (IllegalArgumentException exception) {
-			return EngineAck.rejectedAck(EngineAckReason.NOT_OWNER);
+			return EngineAck.rejectedAck(EngineAckReason.REJECTED);
 		} catch (Exception exception) {
 			return EngineAck.rejectedAck(EngineAckReason.INTERNAL_ERROR);
 		}
+	}
+
+	private void joinRoom(String roomId, String userId, String name) {
+		Room room = roomSlotRepository.findRoomByRoomId(roomId)
+			.orElseThrow(() -> new IllegalArgumentException("room not found"));
+		if (!room.getParticipants().containsKey(userId) && room.getParticipants().size() >= room.getCapacity()) {
+			throw new IllegalStateException("room is full");
+		}
+		room.getParticipants().put(userId, new Participant(userId, name, ParticipantStatus.ACTIVE, null));
+		room.increaseVersion();
+		log.info("session connected. roomId={}, userId={}, participantCount={}",
+			roomId, userId, room.getParticipants().size());
+	}
+
+	private void leaveRoom(String roomId, String userId) {
+		Room room = roomSlotRepository.findRoomByRoomId(roomId)
+			.orElseThrow(() -> new IllegalArgumentException("room not found"));
+		room.getParticipants().remove(userId);
+		room.increaseVersion();
+		log.info("session disconnected or leave requested. roomId={}, userId={}, participantCount={}",
+			roomId, userId, room.getParticipants().size());
 	}
 
 	private Stroke toStroke(JsonNode payload) {

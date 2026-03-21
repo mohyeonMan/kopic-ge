@@ -12,7 +12,7 @@ public class DefaultAudienceResolver implements AudienceResolver {
 
 	@Override
 	public List<TargetedDelivery> resolve(Room room, ServerEnvelope envelope) {
-		return room.participants().values().stream()
+		return room.getParticipants().values().stream()
 			.map(participant -> new TargetedDelivery(participant.userId(), envelope))
 			.collect(Collectors.toList());
 	}

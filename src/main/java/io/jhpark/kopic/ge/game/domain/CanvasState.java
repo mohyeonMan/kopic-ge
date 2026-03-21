@@ -1,8 +1,12 @@
 package io.jhpark.kopic.ge.game.domain;
 
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-public record CanvasState(
-	List<Stroke> strokes
-) {
+@Getter
+@AllArgsConstructor
+public final class CanvasState {
+
+	private final List<Stroke> strokes;
 }

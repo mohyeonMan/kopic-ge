@@ -1,4 +1,4 @@
-﻿# ko-pic GE Internal API Contract v0
+# ko-pic GE Internal API Contract v0
 
 ## 1. 목적
 

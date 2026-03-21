@@ -12,8 +12,10 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class DefaultRoomLifecycleService implements RoomLifecycleService {
 
@@ -21,10 +23,10 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 	private static final int PRIVATE_MIN_CAPACITY = 2;
 	private static final int PRIVATE_MAX_CAPACITY = 8;
 
-	private final RoomRegistry roomRegistry;
+	private final RoomSlotRepository roomSlotRepository;
 
-	public DefaultRoomLifecycleService(RoomRegistry roomRegistry) {
-		this.roomRegistry = roomRegistry;
+	public DefaultRoomLifecycleService(RoomSlotRepository roomSlotRepository) {
+		this.roomSlotRepository = roomSlotRepository;
 	}
 
 	@Override
@@ -51,7 +53,9 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 			1L,
 			capacity
 		);
-		roomRegistry.save(room);
+		roomSlotRepository.saveSlot(new RoomSlot(room));
+		log.info("private room created. roomId={}, ownerEngineId={}, hostUserId={}, capacity={}",
+			room.getRoomId(), engineId, userId, capacity);
 		return room;
 	}
 
@@ -75,12 +79,15 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 			1L,
 			RANDOM_CAPACITY
 		);
-		roomRegistry.save(room);
+		roomSlotRepository.saveSlot(new RoomSlot(room));
+		log.info("random room created. roomId={}, ownerEngineId={}, userId={}",
+			room.getRoomId(), engineId, userId);
 		return room;
 	}
 
 	@Override
 	public void closeRoom(String roomId) {
-		roomRegistry.delete(roomId);
+		log.info("closing room. roomId={}", roomId);
+		roomSlotRepository.deleteSlot(roomId);
 	}
 }

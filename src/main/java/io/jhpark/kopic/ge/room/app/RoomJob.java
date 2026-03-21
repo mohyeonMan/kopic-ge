@@ -2,7 +2,8 @@ package io.jhpark.kopic.ge.room.app;
 
 import io.jhpark.kopic.ge.room.domain.Room;
 
-public interface RoomLeaveService {
+@FunctionalInterface
+public interface RoomJob {
 
-	Room leave(String roomId, String userId);
+	RoomJobResult run(Room room);
 }
