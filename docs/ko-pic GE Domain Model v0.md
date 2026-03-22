@@ -133,18 +133,19 @@ GE가 소유하지 않는 것:
 
 클라이언트 이벤트 코드 기준으로 도메인 이벤트를 모델링한다.
 
-- `RoomStateEmitted` -> `301`
+- `RoomJoinedBroadcasted` -> `301`
 - `GameStarted` -> `302`
 - `RoundStarted` -> `303`
 - `TurnStarted` -> `304`
 - `TurnEnded` -> `305`
 - `RoundEnded` -> `306`
 - `GameEnded` -> `307`
+- `DrawingStarted` -> `310`
+- `TurnStateChanged` -> `311`
 - `CanvasStrokeBroadcasted` -> `401`
 - `CanvasCleared` -> `402`
 - `GuessMessageBroadcasted` -> `403`
 - `GuessCorrectBroadcasted` -> `404`
-- `ScoreUpdated` -> `405`
 - `WordChoicesIssued` -> `406`
 - `GameSnapshotBuilt` -> `408`
 
@@ -188,7 +189,7 @@ GE가 소유하지 않는 것:
 - 닉네임 중복은 허용한다.
 - 중간입장자는 현재 턴에서 `guess` 가능하다.
 - 중간입장자는 현재 턴의 `drawer`가 될 수 없다.
-- join 성공 직후 `301 + 408` 발행을 기본 흐름으로 한다.
+- join 성공 직후 기존 participant에게 `301`, joiner에게 `408` 발행을 기본 흐름으로 한다.
 
 2. 시작/설정
 - `PRIVATE` room의 `GAME_START_REQUEST`는 host만 허용한다.

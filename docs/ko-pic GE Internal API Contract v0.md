@@ -22,8 +22,10 @@
 
 1. WS는 envelope transport를 담당하고, GE는 도메인 검증/상태 전이를 담당한다.
 2. WS->GE 동기 RPC 응답은 `ack/error` 의미만 가진다.
-3. 클라이언트-facing 상태 이벤트(`301~408`, `3`)는 GE->WS 비동기 outbound 경로로 전달한다.
+3. 클라이언트-facing 상태 이벤트(`301~309`, `401~408`, `3`)는 GE->WS 비동기 outbound 경로로 전달한다.
 4. `rid`는 WS/GE 내부 DTO에서도 동일 키(`rid`)로 취급하며 가능하면 그대로 보존한다.
+5. GE 구현 내부에서는 WS/GE 입력 이벤트와 GE->WS 발행 이벤트를 별도 분류로 관리한다.
+   입력 이벤트는 inbound handler 대상이고, 발행 이벤트는 outbound publisher 대상이다.
 
 ---
 

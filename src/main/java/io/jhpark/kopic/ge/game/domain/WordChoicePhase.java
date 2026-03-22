@@ -9,14 +9,9 @@ import lombok.Setter;
 @Getter
 @Setter
 @AllArgsConstructor
-public final class Round {
+public final class WordChoicePhase implements TurnPhase {
 
-	private final int roundNo;
-	private RoundState state;
-	private int turnCursor;
-	private final List<String> drawerOrder;
-	private Turn currentTurn;
+	private final List<String> wordChoices;
 	private Instant startedAt;
-	private Instant endedAt;
-
+	private Instant endsAt;
 }

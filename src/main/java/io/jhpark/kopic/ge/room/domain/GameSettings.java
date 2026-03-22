@@ -5,10 +5,9 @@ public record GameSettings(
 	int drawSec,
 	int wordChoiceSec,
 	int wordChoiceCount,
+	DrawerOrderMode drawerOrderMode,
 	EndMode endMode
 ) {
-
-	public static final int FIXED_WORD_CHOICE_SEC = 10;
 
 	public GameSettings {
 		if (roundCount < 3 || roundCount > 10) {
@@ -17,11 +16,14 @@ public record GameSettings(
 		if (drawSec < 20 || drawSec > 60) {
 			throw new IllegalArgumentException("drawSec must be 20..60");
 		}
-		if (wordChoiceSec != FIXED_WORD_CHOICE_SEC) {
-			throw new IllegalArgumentException("wordChoiceSec must be 10");
+		if (wordChoiceSec < 5 || wordChoiceSec > 15) {
+			throw new IllegalArgumentException("wordChoiceSec must be 5..15");
 		}
 		if (wordChoiceCount < 3 || wordChoiceCount > 5) {
 			throw new IllegalArgumentException("wordChoiceCount must be 3..5");
+		}
+		if (drawerOrderMode == null) {
+			throw new IllegalArgumentException("drawerOrderMode must not be null");
 		}
 	}
 }

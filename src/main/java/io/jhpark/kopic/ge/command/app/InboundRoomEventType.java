@@ -6,6 +6,7 @@ public enum InboundRoomEventType {
 
 	GAME_START_REQUEST(105),
 	GAME_SNAPSHOT_REQUEST(106),
+	GAME_SETTINGS_UPDATE_REQUEST(107),
 	DRAW_STROKE(201),
 	DRAW_CLEAR(202),
 	GUESS_SUBMIT(204),
@@ -27,6 +28,7 @@ public enum InboundRoomEventType {
 		return switch (eventCode) {
 			case 105 -> GAME_START_REQUEST;
 			case 106 -> GAME_SNAPSHOT_REQUEST;
+			case 107 -> GAME_SETTINGS_UPDATE_REQUEST;
 			case 201 -> DRAW_STROKE;
 			case 202 -> DRAW_CLEAR;
 			case 204 -> GUESS_SUBMIT;

@@ -6,6 +6,7 @@ import io.jhpark.kopic.ge.directory.app.RoomCodeIndexUpdater;
 import io.jhpark.kopic.ge.directory.app.RoomRoutingUpdater;
 import io.jhpark.kopic.ge.directory.domain.EngineStatus;
 import io.jhpark.kopic.ge.room.domain.EndMode;
+import io.jhpark.kopic.ge.room.domain.DrawerOrderMode;
 import io.jhpark.kopic.ge.room.domain.GameSettings;
 import io.jhpark.kopic.ge.room.domain.Participant;
 import io.jhpark.kopic.ge.room.domain.ParticipantStatus;
@@ -73,7 +74,7 @@ public class DefaultRoomService implements RoomService {
 			RoomState.LOBBY,
 			Instant.now(),
 			userId,
-			new GameSettings(3, 20, GameSettings.FIXED_WORD_CHOICE_SEC, 3, EndMode.FIRST_CORRECT),
+			new GameSettings(3, 20, 10, 3, DrawerOrderMode.JOIN_ORDER, EndMode.FIRST_CORRECT),
 			null,
 			engineId,
 			1L,
@@ -102,7 +103,7 @@ public class DefaultRoomService implements RoomService {
 			RoomState.LOBBY,
 			Instant.now(),
 			null,
-			new GameSettings(3, 20, GameSettings.FIXED_WORD_CHOICE_SEC, 3, EndMode.FIRST_CORRECT),
+			new GameSettings(3, 20, 10, 3, DrawerOrderMode.JOIN_ORDER, EndMode.FIRST_CORRECT),
 			null,
 			engineId,
 			1L,
