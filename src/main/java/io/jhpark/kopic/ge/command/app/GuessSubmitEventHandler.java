@@ -15,8 +15,8 @@ public class GuessSubmitEventHandler extends AbstractRoomEventHandler {
 	}
 
 	@Override
-	public RoomEventType supports() {
-		return RoomEventType.GUESS_SUBMIT;
+	public InboundRoomEventType supports() {
+		return InboundRoomEventType.GUESS_SUBMIT;
 	}
 
 	@Override

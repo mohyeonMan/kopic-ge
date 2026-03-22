@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class DefaultRoomEventHandlerRegistry implements RoomEventHandlerRegistry {
 
-	private final Map<RoomEventType, RoomEventHandler> handlers;
+	private final Map<InboundRoomEventType, RoomEventHandler> handlers;
 
 	public DefaultRoomEventHandlerRegistry(List<RoomEventHandler> handlers) {
 		this.handlers = handlers.stream()
@@ -17,7 +17,7 @@ public class DefaultRoomEventHandlerRegistry implements RoomEventHandlerRegistry
 	}
 
 	@Override
-	public RoomEventHandler get(RoomEventType eventType) {
+	public RoomEventHandler get(InboundRoomEventType eventType) {
 		RoomEventHandler handler = handlers.get(eventType);
 		if (handler == null) {
 			throw new IllegalArgumentException("no room event handler for " + eventType);

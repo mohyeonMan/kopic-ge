@@ -15,8 +15,8 @@ public class DrawClearEventHandler extends AbstractRoomEventHandler {
 	}
 
 	@Override
-	public RoomEventType supports() {
-		return RoomEventType.DRAW_CLEAR;
+	public InboundRoomEventType supports() {
+		return InboundRoomEventType.DRAW_CLEAR;
 	}
 
 	@Override

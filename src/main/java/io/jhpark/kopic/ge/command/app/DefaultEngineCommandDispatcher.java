@@ -26,7 +26,7 @@ public class DefaultEngineCommandDispatcher implements EngineCommandDispatcher {
 	public EngineAck handleEnvelope(EngineEnvelopeRequest request) {
 		try {
 			commandValidator.validateEnvelope(request.envelope());
-			RoomEventType eventType = RoomEventType.fromEnvelopeCode(request.envelope().e());
+			InboundRoomEventType eventType = InboundRoomEventType.fromClientEnvelopeCode(request.envelope().e());
 			RoomEventContext context = new RoomEventContext(
 				eventType,
 				request.roomId(),
@@ -50,7 +50,7 @@ public class DefaultEngineCommandDispatcher implements EngineCommandDispatcher {
 	@Override
 	public EngineAck handleSessionLifecycle(SessionLifecycleEvent event) {
 		try {
-			RoomEventType eventType = RoomEventType.fromSessionType(event.type());
+			InboundRoomEventType eventType = InboundRoomEventType.fromSessionType(event.type());
 			RoomEventContext context = new RoomEventContext(
 				eventType,
 				event.roomId(),

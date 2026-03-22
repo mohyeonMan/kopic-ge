@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 
 public record RoomEventContext(
-	RoomEventType eventType,
+	InboundRoomEventType eventType,
 	String roomId,
 	String userId,
 	Instant occurredAt,

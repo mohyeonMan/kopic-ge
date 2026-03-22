@@ -18,8 +18,8 @@ public class RoomJoinEventHandler extends AbstractRoomEventHandler {
 	}
 
 	@Override
-	public RoomEventType supports() {
-		return RoomEventType.ROOM_JOIN;
+	public InboundRoomEventType supports() {
+		return InboundRoomEventType.ROOM_JOIN;
 	}
 
 	@Override

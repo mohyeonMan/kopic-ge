@@ -15,8 +15,8 @@ public class DrawStrokeEventHandler extends AbstractRoomEventHandler {
 	}
 
 	@Override
-	public RoomEventType supports() {
-		return RoomEventType.DRAW_STROKE;
+	public InboundRoomEventType supports() {
+		return InboundRoomEventType.DRAW_STROKE;
 	}
 
 	@Override

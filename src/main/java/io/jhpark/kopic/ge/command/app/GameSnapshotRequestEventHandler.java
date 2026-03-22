@@ -15,8 +15,8 @@ public class GameSnapshotRequestEventHandler extends AbstractRoomEventHandler {
 	}
 
 	@Override
-	public RoomEventType supports() {
-		return RoomEventType.GAME_SNAPSHOT_REQUEST;
+	public InboundRoomEventType supports() {
+		return InboundRoomEventType.GAME_SNAPSHOT_REQUEST;
 	}
 
 	@Override

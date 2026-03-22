@@ -15,8 +15,8 @@ public class RoomLeaveLifecycleEventHandler extends AbstractRoomEventHandler {
 	}
 
 	@Override
-	public RoomEventType supports() {
-		return RoomEventType.ROOM_LEAVE;
+	public InboundRoomEventType supports() {
+		return InboundRoomEventType.ROOM_LEAVE;
 	}
 
 	@Override
