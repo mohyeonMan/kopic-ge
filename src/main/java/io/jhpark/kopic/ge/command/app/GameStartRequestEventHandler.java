@@ -2,7 +2,7 @@ package io.jhpark.kopic.ge.command.app;
 
 import io.jhpark.kopic.ge.command.dto.EngineAck;
 import io.jhpark.kopic.ge.command.dto.EngineAckReason;
-import io.jhpark.kopic.ge.room.app.RoomRunner;
+import io.jhpark.kopic.ge.room.app.RoomService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class GameStartRequestEventHandler extends AbstractRoomEventHandler {
 
-	public GameStartRequestEventHandler(RoomRunner roomRunner) {
-		super(roomRunner);
+	public GameStartRequestEventHandler(RoomService roomService) {
+		super(roomService);
 	}
 
 	@Override

@@ -16,15 +16,18 @@ public class DefaultRoomRunner implements RoomRunner {
 	private final RoomSlotRepository roomSlotRepository;
 	private final Executor roomRunnerExecutor;
 	private final ScheduledExecutorService roomRunnerScheduler;
+	private final RoomClosingPort roomClosingPort;
 
 	public DefaultRoomRunner(
 		RoomSlotRepository roomSlotRepository,
 		@Qualifier("roomRunnerExecutor") Executor roomRunnerExecutor,
-		@Qualifier("roomRunnerScheduler") ScheduledExecutorService roomRunnerScheduler
+		@Qualifier("roomRunnerScheduler") ScheduledExecutorService roomRunnerScheduler,
+		RoomClosingPort roomClosingPort
 	) {
 		this.roomSlotRepository = roomSlotRepository;
 		this.roomRunnerExecutor = roomRunnerExecutor;
 		this.roomRunnerScheduler = roomRunnerScheduler;
+		this.roomClosingPort = roomClosingPort;
 	}
 
 	@Override
@@ -47,8 +50,8 @@ public class DefaultRoomRunner implements RoomRunner {
 				throw new IllegalStateException("room job result must not be null");
 			}
 			if (result.outcome() == RoomJobOutcome.DELETE_SLOT) {
-				log.info("deleting room slot after job. roomId={}", slot.roomId());
-				roomSlotRepository.deleteSlot(slot.roomId());
+				log.info("closing room after job. roomId={}", slot.roomId());
+				roomClosingPort.closeRoom(slot.roomId());
 				return;
 			}
 			slot.touch(Instant.now());

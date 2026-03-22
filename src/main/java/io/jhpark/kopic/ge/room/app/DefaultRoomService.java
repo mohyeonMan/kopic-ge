@@ -23,21 +23,23 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class DefaultRoomLifecycleService implements RoomLifecycleService {
+public class DefaultRoomService implements RoomService {
 
 	private static final int RANDOM_CAPACITY = 8;
 	private static final int PRIVATE_MIN_CAPACITY = 2;
 	private static final int PRIVATE_MAX_CAPACITY = 8;
 
 	private final RoomSlotRepository roomSlotRepository;
+	private final RoomRunner roomRunner;
 	private final RoomRoutingUpdater roomRoutingUpdater;
 	private final RoomCodeIndexUpdater roomCodeIndexUpdater;
 	private final RandomJoinableIndexUpdater randomJoinableIndexUpdater;
 	private final EnginePresencePublisher enginePresencePublisher;
 	private final String engineEndpoint;
 
-	public DefaultRoomLifecycleService(
+	public DefaultRoomService(
 		RoomSlotRepository roomSlotRepository,
+		RoomRunner roomRunner,
 		RoomRoutingUpdater roomRoutingUpdater,
 		RoomCodeIndexUpdater roomCodeIndexUpdater,
 		RandomJoinableIndexUpdater randomJoinableIndexUpdater,
@@ -45,6 +47,7 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 		@Value("${engine.endpoint:http://localhost:8080}") String engineEndpoint
 	) {
 		this.roomSlotRepository = roomSlotRepository;
+		this.roomRunner = roomRunner;
 		this.roomRoutingUpdater = roomRoutingUpdater;
 		this.roomCodeIndexUpdater = roomCodeIndexUpdater;
 		this.randomJoinableIndexUpdater = randomJoinableIndexUpdater;
@@ -112,6 +115,11 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 		log.info("random room created. roomId={}, ownerEngineId={}, userId={}",
 			room.getRoomId(), engineId, userId);
 		return room;
+	}
+
+	@Override
+	public void submit(String roomId, RoomJob roomJob) {
+		roomRunner.submit(roomId, roomJob);
 	}
 
 	@Override

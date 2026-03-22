@@ -3,7 +3,7 @@ package io.jhpark.kopic.ge.command.app;
 import io.jhpark.kopic.ge.command.dto.EngineAck;
 import io.jhpark.kopic.ge.command.dto.EngineAckReason;
 import io.jhpark.kopic.ge.room.app.RoomJobResult;
-import io.jhpark.kopic.ge.room.app.RoomRunner;
+import io.jhpark.kopic.ge.room.app.RoomService;
 import io.jhpark.kopic.ge.room.domain.Participant;
 import io.jhpark.kopic.ge.room.domain.ParticipantStatus;
 import lombok.extern.slf4j.Slf4j;
@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class RoomJoinEventHandler extends AbstractRoomEventHandler {
 
-	public RoomJoinEventHandler(RoomRunner roomRunner) {
-		super(roomRunner);
+	public RoomJoinEventHandler(RoomService roomService) {
+		super(roomService);
 	}
 
 	@Override

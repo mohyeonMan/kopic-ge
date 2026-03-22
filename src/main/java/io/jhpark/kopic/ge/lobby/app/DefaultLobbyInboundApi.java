@@ -6,7 +6,7 @@ import io.jhpark.kopic.ge.lobby.dto.JoinUserCommand;
 import io.jhpark.kopic.ge.lobby.dto.PrivateRoomCreated;
 import io.jhpark.kopic.ge.lobby.dto.QuickJoinResult;
 import io.jhpark.kopic.ge.lobby.dto.RandomRoomCreated;
-import io.jhpark.kopic.ge.room.app.RoomLifecycleService;
+import io.jhpark.kopic.ge.room.app.RoomService;
 import io.jhpark.kopic.ge.room.app.RoomSlotRepository;
 import io.jhpark.kopic.ge.room.domain.Participant;
 import io.jhpark.kopic.ge.room.domain.ParticipantStatus;
@@ -18,28 +18,28 @@ import org.springframework.stereotype.Component;
 @Component
 public class DefaultLobbyInboundApi implements LobbyInboundApi {
 
-	private final RoomLifecycleService roomLifecycleService;
+	private final RoomService roomService;
 	private final RoomSlotRepository roomSlotRepository;
 
 	public DefaultLobbyInboundApi(
-		RoomLifecycleService roomLifecycleService,
+		RoomService roomService,
 		RoomSlotRepository roomSlotRepository
 	) {
-		this.roomLifecycleService = roomLifecycleService;
+		this.roomService = roomService;
 		this.roomSlotRepository = roomSlotRepository;
 	}
 
 	@Override
 	public PrivateRoomCreated createPrivateRoom(String engineId, CreatePrivateRoomCommand command) {
 		return new PrivateRoomCreated(
-			roomLifecycleService.createPrivateRoom(engineId, command.userId(), command.name(), command.capacity())
+			roomService.createPrivateRoom(engineId, command.userId(), command.name(), command.capacity())
 		);
 	}
 
 	@Override
 	public RandomRoomCreated createRandomRoom(String engineId, CreateRandomRoomCommand command) {
 		return new RandomRoomCreated(
-			roomLifecycleService.createRandomRoom(engineId, command.userId(), command.name())
+			roomService.createRandomRoom(engineId, command.userId(), command.name())
 		);
 	}
 

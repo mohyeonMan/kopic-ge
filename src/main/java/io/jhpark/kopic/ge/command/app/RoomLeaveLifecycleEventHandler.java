@@ -2,7 +2,7 @@ package io.jhpark.kopic.ge.command.app;
 
 import io.jhpark.kopic.ge.command.dto.EngineAck;
 import io.jhpark.kopic.ge.room.app.RoomJobResult;
-import io.jhpark.kopic.ge.room.app.RoomRunner;
+import io.jhpark.kopic.ge.room.app.RoomService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class RoomLeaveLifecycleEventHandler extends AbstractRoomEventHandler {
 
-	public RoomLeaveLifecycleEventHandler(RoomRunner roomRunner) {
-		super(roomRunner);
+	public RoomLeaveLifecycleEventHandler(RoomService roomService) {
+		super(roomService);
 	}
 
 	@Override
