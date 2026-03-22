@@ -15,8 +15,9 @@ public class LoggingOutboundPublisher implements OutboundPublisher {
 	@Override
 	public void publish(List<TargetedDelivery> events) {
 		events.forEach(event ->
-			log.info("ge outbound userId={} eventCode={} requestId={}",
+			log.info("ge outbound userId={} wsNodeId={} eventCode={} requestId={}",
 				event.userId(),
+				event.wsNodeId(),
 				event.envelope().e(),
 				event.envelope().rid())
 		);

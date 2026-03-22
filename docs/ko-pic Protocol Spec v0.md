@@ -52,7 +52,7 @@
 
 전환 지연:
 
-- 턴 종료 -> 다음 턴 시작: 3초
+- 턴 종료 -> 다음 턴 시작: 2초
 - 라운드 종료 -> 다음 라운드 시작: 4초
 - 게임 종료 결과 화면 유지: 8초
 
@@ -120,6 +120,8 @@
 - client-originated `ROOM_JOIN` 이벤트는 사용하지 않는다.
 - `roomId`는 WS handshake 컨텍스트에서 받는다.
 - 실제 join 처리는 WS가 `afterConnectionEstablished` 단계에서 내부 `JOIN` lifecycle 이벤트로 GE에 전달한다.
+- 내부 `JOIN` lifecycle payload에는 `nickname`이 필수다.
+- `wsNodeId`는 선택값이며, WS가 알고 있으면 함께 전달해 session presence를 갱신한다.
 
 ### 103 RESERVED
 
@@ -132,25 +134,14 @@
 {
   "e": 105,
   "rid": "c-4",
-  "p": {
-    "roundCount": 3,
-    "drawSec": 20,
-    "wordChoiceSec": 10,
-    "wordChoiceCount": 3,
-    "drawerOrderMode": "JOIN_ORDER",
-    "endMode": "FIRST_CORRECT"
-  }
+  "p": {}
 }
 ```
 
-검증:
+규칙:
 
-- `roundCount`: 3..10
-- `drawSec`: 20..60
-- `wordChoiceSec`: 5..15
-- `wordChoiceCount`: 3..5
-- `drawerOrderMode`: `JOIN_ORDER` | `RANDOM`
-- `endMode`: `FIRST_CORRECT` | `TIME_OR_ALL_CORRECT`
+- 서버는 request payload가 아니라 현재 `Room.settings`를 읽어 게임을 시작한다.
+- settings 변경은 사전에 `107 GAME_SETTINGS_UPDATE_REQUEST`로 반영한다.
 
 게임 시작 후 다시 요청하면 `GAME_ALREADY_STARTED`.
 
@@ -227,9 +218,10 @@ private room 대기실에서 host가 다음 게임 설정을 바꿀 때 사용�
 - 사용자당 `DRAW_STROKE` 초당 최대 20회
 - 메시지 최대 8KB
 
-호환:
+권장:
 
-- 서버는 전환 기간 동안 legacy object 포맷(`strokeId/tool/colorIndex/size/points`)도 수용 가능.
+- stroke는 배열 포맷을 사용한다.
+- 다른 형태의 입력이 있더라도 WS 쪽에서 배열 포맷으로 변환해 전달하는 것이 가장 단순하다.
 
 권한:
 
@@ -300,7 +292,7 @@ private room 대기실에서 host가 다음 게임 설정을 바꿀 때 사용�
   "e": 301,
   "p": {
     "userId": "u2",
-    "name": "jhp"
+    "nickname": "jhp"
   }
 }
 ```
@@ -309,6 +301,7 @@ private room 대기실에서 host가 다음 게임 설정을 바꿀 때 사용�
 
 - 기존 participant들에게만 발행한다.
 - joiner 자신에게는 전체 초기 동기화용 `408 GAME_SNAPSHOT`을 발행한다.
+- 이미 같은 `userId`가 room participant에 있으면 중복 join으로 간주하고 추가 발행 없이 무시한다.
 
 ### 302 GAME_STARTED
 
@@ -541,7 +534,7 @@ drawer에게 드로잉 phase 시작과 실제 그리기 시간 시작을 알린�
 ```json
 {
   "e": 403,
-  "p": { "userId": "u2", "name": "jhp", "text": "바나나" }
+  "p": { "userId": "u2", "nickname": "jhp", "text": "바나나" }
 }
 ```
 
@@ -555,7 +548,7 @@ drawer에게 드로잉 phase 시작과 실제 그리기 시간 시작을 알린�
 ```json
 {
   "e": 404,
-  "p": { "userId": "u2", "name": "jhp" }
+  "p": { "userId": "u2", "nickname": "jhp", "turnId": "t-1" }
 }
 ```
 
@@ -593,8 +586,8 @@ drawer 전용.
       "hostUserId": "u1"
     },
     "participants": [
-      { "userId": "u1", "name": "aaa" },
-      { "userId": "u2", "name": "jhp" }
+      { "userId": "u1", "nickname": "aaa" },
+      { "userId": "u2", "nickname": "jhp" }
     ],
     "game": {
       "status": "RUNNING",
@@ -628,8 +621,13 @@ drawer 전용.
 
 게임 시작 전 대기실 상태에서는:
 
-- `game.status = "LOBBY"`
+- `room.state = "LOBBY"`
 - `canvas.strokes = []`
+
+규칙:
+
+- `106 GAME_SNAPSHOT_REQUEST`도 room mailbox 안에서 현재 authoritative state를 읽어 응답한다.
+- 현재 room participant가 아닌 사용자의 `106 GAME_SNAPSHOT_REQUEST`는 무시한다.
 
 ---
 

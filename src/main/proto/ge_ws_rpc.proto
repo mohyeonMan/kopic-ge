@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package kopic.ge.ws.v1;
+
+option java_multiple_files = true;
+option java_package = "io.jhpark.kopic.ge.rpc.ws.v1";
+option java_outer_classname = "GeWsRpcProto";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+service WsRpcService {
+  rpc HandleEnvelope(EngineEnvelopeRequestMessage) returns (EngineAckMessage);
+  rpc HandleSessionLifecycle(SessionLifecycleEventMessage) returns (EngineAckMessage);
+}
+
+message ClientEnvelopeMessage {
+  int32 e = 1;
+  google.protobuf.Struct p = 2;
+  string rid = 3;
+}
+
+message EngineEnvelopeRequestMessage {
+  string room_id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  ClientEnvelopeMessage envelope = 4;
+}
+
+enum SessionLifecycleTypeMessage {
+  SESSION_LIFECYCLE_TYPE_UNSPECIFIED = 0;
+  JOIN = 1;
+  LEAVE = 2;
+}
+
+message SessionLifecycleEventMessage {
+  string room_id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  SessionLifecycleTypeMessage type = 4;
+  google.protobuf.Struct payload = 5;
+}
+
+enum EngineAckReasonMessage {
+  ENGINE_ACK_REASON_UNSPECIFIED = 0;
+  ACCEPTED = 1;
+  NOT_OWNER = 2;
+  MIGRATING = 3;
+  REJECTED = 4;
+  INTERNAL_ERROR = 5;
+}
+
+message EngineAckMessage {
+  bool accepted = 1;
+  EngineAckReasonMessage reason = 2;
+}

@@ -47,13 +47,12 @@
 방 참가자 정보다.
 
 - `userId`
-- `name`
+- `nickname`
 - `status`
-- `wsNodeId`
 
 ### Participant 주석
 
-- `status`, `wsNodeId`는 MVP 규칙만 보면 과할 수 있다.
+- `status`는 MVP 규칙만 보면 과할 수 있다.
 - 하지만 참가자 추적/세션 연계 가능성을 고려해 v0.1에서는 유지한다.
 
 ---
@@ -251,7 +250,7 @@ v0.1 기준으로 아래를 전제로 한다.
 이 구조는 아래 선택을 명시적으로 한 버전이다.
 
 - `Room.settings`와 `Game.settings`를 둘 다 유지
-- participant의 `status`, `wsNodeId`도 유지
+- participant의 `status`도 유지
 - 현재 진행 상태 중심 모델 채택
 - 결과 화면 유지 구간을 `Game.status`로 직접 표현
 - `Room/Game/Round/Turn`을 mailbox 안에서만 수정되는 mutable authoritative state로 간주

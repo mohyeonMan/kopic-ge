@@ -5,14 +5,15 @@
 
 현재 기준의 GE 내부 실행 구조는 아래와 같다.
 
-- room 생성은 `Lobby -> GE lifecycle` 경로로 별도 처리한다.
+- room 생성은 `LobbyRpcGrpcService -> RoomService` 경로로 별도 처리한다.
 - 이미 존재하는 room에 들어오는 이벤트만 `room mailbox` 경로를 탄다.
-- command handler는 분기만 하고, 이벤트별 handler가 room job을 만든다.
-- handler가 다루는 이벤트는 `InboundRoomEventType`만 사용한다.
+- WS runtime 입력은 `WsRpcGrpcService -> GameFlowService.dispatch(...)` 경로를 탄다.
+- `GameFlowService`가 inbound 이벤트를 분기하고, 필요한 `RoomJob`을 만들어 `RoomService.submit(...)`으로 넘긴다.
 - 서버가 WS로 발행하는 프로토콜 이벤트는 `OutboundRoomEventType`으로 별도 관리한다.
 - room job은 `RoomService.submit(...)`을 통해 room별 mailbox에 적재된다.
 - 실제 상태 수정은 worker가 mailbox를 drain하면서 수행한다.
 - 후속 작업은 즉시 재-submit 또는 scheduler 등록 후 재-submit 한다.
+- outbound routing은 room domain이 아니라 session presence를 기준으로 결정한다.
 
 즉 `GE`는 아래 역할을 책임진다.
 
@@ -23,6 +24,7 @@
 - score/canvas/guess 판정
 - snapshot(`408`) 생성
 - route/joinable/presence 갱신
+- session presence 조회와 WS node routing
 - migration source/target runtime 처리
 
 반대로 아래는 `GE` 책임이 아니다.
@@ -42,6 +44,14 @@ io.jhpark.kopic.ge
 
   config
     RoomRunnerConfig
+    GrpcServerConfig
+
+  api
+    internal
+      WsRpcGrpcService
+      LobbyRpcGrpcService
+      MigrationApi
+      DefaultMigrationApi
 
   room
     domain
@@ -81,37 +91,20 @@ io.jhpark.kopic.ge
       SessionLifecycleEvent
       EngineAck
     app
-      EngineCommandDispatcher
+      GameFlowService
       InboundRoomEventType
       OutboundRoomEventType
       RoomEventContext
-      RoomEventHandler
-      RoomEventHandlerRegistry
-      AbstractRoomEventHandler
-      RoomJoinEventHandler
-      RoomLeaveLifecycleEventHandler
-      GameSettingsUpdateRequestEventHandler
-      GameStartRequestEventHandler
-      GameSnapshotRequestEventHandler
-      DrawStrokeEventHandler
-      DrawClearEventHandler
-      GuessSubmitEventHandler
-      WordChoiceEventHandler
-      flow
-        internal
-          RoundStartJob
-          WordChoiceTurnStartJob
-          WordChoiceTimeoutJob
-          DrawingTimeoutJob
-          TurnEndJob
-          RoundEndJob
-          GameEndJob
-          ResultViewEndJob
 
   outbound
     app
       OutboundPublisher
-      AudienceResolver
+      BroadcastService
+    dto
+      ServerEnvelope
+      TargetedDelivery
+    infra
+      LoggingOutboundPublisher
 
   directory
     app
@@ -119,6 +112,11 @@ io.jhpark.kopic.ge
       RoomCodeIndexUpdater
       RandomJoinableIndexUpdater
       EnginePresencePublisher
+      SessionPresenceRepository
+      SessionPresenceResolver
+    infra
+      RedisSessionPresenceRepository
+      CachedSessionPresenceResolver
 
   migration
     app
@@ -160,36 +158,40 @@ io.jhpark.kopic.ge
 
 즉 thread-safety의 핵심은 immutable 복사가 아니라 `room별 단일 실행 보장`이다.
 
-### 4. WS lifecycle는 GE 내부 room join/leave로 변환한다
+### 4. WS lifecycle는 GE 내부 room join/leave로 변환하고 session presence를 갱신한다
 
 - WS는 transport/session 관점에서 `JOIN`, `LEAVE` lifecycle 이벤트를 GE에 전달한다.
+- GE는 `JOIN`일 때 payload의 `nickname`을 읽고, `wsNodeId`가 있으면 session presence를 갱신한다.
+- session presence는 Redis를 authoritative source로 두고, key는 `session:presence:user:{userId}`를 사용한다.
 - GE는 이를 내부적으로 inbound room 이벤트 의미인 `ROOM_JOIN`, `ROOM_LEAVE`로 취급한다.
 - 즉 WS의 연결 사건을 그대로 쓰지 않고, GE 안에서는 방 참여/이탈 의미를 기준으로 본다.
 
-### 5. handler는 분기와 job 조립만 담당한다
+### 5. GameFlowService는 WS runtime orchestration을 담당한다
 
-- `EngineCommandDispatcher`는 client event code를 `InboundRoomEventType`으로 변환한다.
+- `WsRpcGrpcService`는 client event code를 `InboundRoomEventType`으로 변환한다.
 - session lifecycle은 `JOIN/LEAVE`를 내부 `ROOM_JOIN/ROOM_LEAVE`로 변환한다.
-- registry에서 해당 handler를 찾는다.
-- handler는 payload/context를 읽고 room job을 만든다.
+- `GameFlowService`는 payload/context를 읽고 필요한 room job을 만든다.
 - 실제 room 상태 수정은 직접 하지 않고 `RoomService.submit(...)`에 맡긴다.
+- outbound는 `BroadcastService`에 userId 목록을 넘기고, 실제 WS node routing은 session presence 기반으로 resolve한다.
 
 즉 역할은 아래와 같이 분리된다.
 
-- `dispatcher = 분기`
-- `handler = room job 조립`
+- `ws rpc grpc service = transport validate + inbound 매핑`
+- `game flow service = runtime orchestration + room job 조립`
 - `room service = submit facade`
 - `runner = room mailbox 적재`
 - `worker = 실제 실행`
+- `broadcast service = userId 대상 publish`
+- `session presence resolver = userId -> wsNodeId resolve`
 
 여기서 중요한 점은 inbound와 outbound를 섞지 않는 것이다.
 
 - `InboundRoomEventType`
   - 클라이언트나 WS lifecycle이 GE로 전달하는 입력 이벤트
-  - handler 필요
+  - `GameFlowService.dispatch(...)`가 처리
 - `OutboundRoomEventType`
   - GE가 WS로 발행하는 프로토콜 이벤트
-  - handler 불필요
+  - `BroadcastService` / `OutboundPublisher`가 처리
 
 예:
 
@@ -231,7 +233,7 @@ job 실행 결과로 아래 두 가지가 생길 수 있다.
 
 예:
 
-- 턴 종료 -> 3초 뒤 다음 턴
+- 턴 종료 -> 2초 뒤 다음 턴
 - 라운드 종료 -> 4초 뒤 다음 라운드
 - 게임 종료 -> 8초 뒤 결과 화면 종료
 
@@ -247,11 +249,11 @@ job 실행 결과로 아래 두 가지가 생길 수 있다.
 - `DRAWING_STARTED` 후 timeout
 - `TURN_ENDED` 후 다음 턴/라운드/게임 종료
 
-이 구간은 handler가 즉석에서 전부 계산해 이어붙이는 대신, 미리 선언된 internal flow job을 follow-up으로 예약하는 방식으로 처리한다.
+이 구간은 `GameFlowService`가 즉석에서 전부 계산해 이어붙이는 대신, 미리 선언된 internal flow job을 follow-up으로 예약하는 방식으로 처리한다.
 
 즉:
 
-- handler는 현재 입력을 처리한다
+- `GameFlowService`는 현재 입력을 처리한다
 - 그 결과로 다음에 필요한 internal flow job을 선택한다
 - 선택된 job은 `RoomService.submit(...)` 경로로 다시 mailbox에 들어간다
 
@@ -298,10 +300,10 @@ job 실행 결과로 아래 두 가지가 생길 수 있다.
 
 ### 2. 기존 room 대상 이벤트
 
-1. WS/GE command 수신
-2. dispatcher가 event code를 `InboundRoomEventType`으로 변환
-3. registry에서 handler 조회
-4. handler가 room job 생성
+1. WS/GE gRPC command 수신
+2. `WsRpcGrpcService`가 event code를 `InboundRoomEventType`으로 변환
+3. `GameFlowService.dispatch(...)`
+4. `GameFlowService`가 room job 생성
 5. `RoomService.submit(roomId, job)`
 6. `RoomSlot.mailbox`에 enqueue
 7. worker가 drain하면서 room 상태 검증/수정
@@ -312,8 +314,8 @@ job 실행 결과로 아래 두 가지가 생길 수 있다.
 ## 피해야 할 구조
 
 - room 생성까지 runner/event enum에 억지로 넣는 구조
-- handler가 repository를 직접 수정하는 구조
-- handler가 room current state를 직접 읽고 권한 검증까지 끝내는 구조
+- `GameFlowService`가 repository를 직접 수정하는 구조
+- `GameFlowService`가 room current state를 직접 읽고 권한 검증까지 끝내는 구조
 - follow-up을 직접 함수 호출로 연결하는 구조
 - room runner 밖에서 mutable room/game/turn을 직접 수정하는 구조
 - executor가 모든 room queue를 상시 스캔하는 구조
@@ -325,12 +327,12 @@ job 실행 결과로 아래 두 가지가 생길 수 있다.
 ### Phase 1
 
 - `RoomSlot`, `RoomSlotRepository`, `RoomRunner`, `RoomJobResult`, scheduler 뼈대
-- dispatcher -> event handler -> runner 경로 정리
-- room 생성은 `LobbyInboundApi -> RoomService.create...` 경로로 유지
+- `WsRpcGrpcService -> GameFlowService -> RoomService` 경로 정리
+- room 생성은 `LobbyRpcGrpcService -> RoomService.create...` 경로로 유지
 
 ### Phase 2
 
-- join/leave/game start/draw/guess/snapshot 이벤트를 handler 기반으로 이관
+- join/leave/game start/draw/guess/snapshot 이벤트를 `GameFlowService` 기준으로 정리
 - follow-up으로 turn/round/game 전이 연결
 - joinable/route/presence 갱신 정리
 

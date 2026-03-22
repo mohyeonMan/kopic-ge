@@ -14,9 +14,11 @@ import io.jhpark.kopic.ge.room.domain.Room;
 import io.jhpark.kopic.ge.room.domain.RoomState;
 import io.jhpark.kopic.ge.room.domain.RoomType;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,14 +59,14 @@ public class DefaultRoomService implements RoomService {
 	}
 
 	@Override
-	public Room createPrivateRoom(String engineId, String userId, String name, int capacity) {
+	public Room createPrivateRoom(String engineId, String userId, String nickname, int capacity) {
 		if (capacity < PRIVATE_MIN_CAPACITY || capacity > PRIVATE_MAX_CAPACITY) {
 			throw new IllegalArgumentException("private room capacity must be 2..8");
 		}
 		String roomId = "r-" + UUID.randomUUID().toString().substring(0, 8);
 		String roomCode = UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase(Locale.ROOT);
 		Map<String, Participant> participants = new LinkedHashMap<>();
-		participants.put(userId, new Participant(userId, name, ParticipantStatus.ACTIVE, null));
+		participants.put(userId, new Participant(userId, nickname, ParticipantStatus.ACTIVE));
 
 		Room room = new Room(
 			roomId,
@@ -90,10 +92,10 @@ public class DefaultRoomService implements RoomService {
 	}
 
 	@Override
-	public Room createRandomRoom(String engineId, String userId, String name) {
+	public Room createRandomRoom(String engineId, String userId, String nickname) {
 		String roomId = "r-" + UUID.randomUUID().toString().substring(0, 8);
 		Map<String, Participant> participants = new LinkedHashMap<>();
-		participants.put(userId, new Participant(userId, name, ParticipantStatus.ACTIVE, null));
+		participants.put(userId, new Participant(userId, nickname, ParticipantStatus.ACTIVE));
 
 		Room room = new Room(
 			roomId,
@@ -116,6 +118,19 @@ public class DefaultRoomService implements RoomService {
 		log.info("random room created. roomId={}, ownerEngineId={}, userId={}",
 			room.getRoomId(), engineId, userId);
 		return room;
+	}
+
+	@Override
+	public Optional<Room> findRoom(String roomId) {
+		return roomSlotRepository.findRoomByRoomId(roomId);
+	}
+
+	@Override
+	public Map<String, Participant> getParticipants(String roomId) {
+		return roomSlotRepository.findRoomByRoomId(roomId)
+			.map(Room::getParticipants)
+			.map(Collections::unmodifiableMap)
+			.orElseThrow(() -> new IllegalArgumentException("room not found: " + roomId));
 	}
 
 	@Override

@@ -55,7 +55,7 @@
 
 - 게임 시작 -> 첫 라운드 시작: 2초
 - 라운드 시작 -> 첫 word choice turn 시작: 2초
-- 턴 종료 -> 다음 턴 시작: 3초
+- 턴 종료 -> 다음 턴 시작: 2초
 - 라운드 종료 -> 다음 라운드 시작: 4초
 - 게임 종료 -> 결과 화면 유지: 8초
 
@@ -67,7 +67,7 @@
 
 사용자 입력이 없는 동안에도 게임은 계속 진행돼야 한다.
 
-따라서 아래 종류의 내부 flow job을 미리 선언해두고, handler는 필요할 때 이 job들을 `followUp`으로 예약하는 방식으로 동작한다.
+따라서 아래 종류의 내부 flow job을 미리 선언해두고, `GameFlowService`는 필요할 때 이 job들을 `followUp`으로 예약하는 방식으로 동작한다.
 
 - round start job
 - word choice turn start job
@@ -78,7 +78,7 @@
 - game end job
 - result view end job
 
-즉 handler는 긴 진행 로직을 끝까지 직접 들고 있지 않고, "현재 입력을 처리한 뒤 다음에 필요한 내부 job이 무엇인지"만 결정해 mailbox에 다시 넣는다.
+즉 `GameFlowService`는 긴 진행 로직을 끝까지 직접 들고 있지 않고, "현재 입력을 처리한 뒤 다음에 필요한 내부 job이 무엇인지"만 결정해 mailbox에 다시 넣는다.
 
 ### 3.1 stale event 방어
 
@@ -114,13 +114,15 @@
 
 흐름:
 
-1. room에 participant를 추가한다.
-2. participant 목록을 최신화한다.
-3. `Room.version`을 증가시킨다.
-4. 기존 participant들에게 `301 ROOM_JOINED`를 발행한다.
-5. 이때 `301 ROOM_JOINED`에는 `userId`, `name`을 담는다.
-6. joiner에게 현재 room authoritative state를 읽어 `408 GAME_SNAPSHOT`을 발행한다.
-7. 이때 `408 GAME_SNAPSHOT`에는 room 메타, participants, current game, current round, current turn, current canvas, current scores를 담는다.
+1. payload에 `nickname`이 있는지 확인한다.
+2. room에 participant를 추가한다.
+2. 이미 같은 `userId`가 참여 중이면 중복 join으로 간주하고 no-op 처리한다.
+3. participant 목록을 최신화한다.
+4. `Room.version`을 증가시킨다.
+5. 기존 participant들에게 `301 ROOM_JOINED`를 발행한다.
+6. 이때 `301 ROOM_JOINED`에는 `userId`, `nickname`을 담는다.
+7. joiner에게 현재 room authoritative state를 읽어 `408 GAME_SNAPSHOT`을 발행한다.
+8. 이때 `408 GAME_SNAPSHOT`에는 room 메타, participants(`userId`, `nickname`), current game, current round, current turn, current canvas, current scores를 담는다.
 
 ---
 
@@ -160,8 +162,8 @@
 3. room state가 `LOBBY`인지 확인한다.
 4. `currentGame == null`인지 확인한다.
 5. participant가 2명 이상인지 확인한다.
-6. settings 값 범위를 검증한다.
-7. `Room.settings`중 필요한 값을 복사해 현재 게임용 `Game.settings`를 만든다.
+6. 현재 `Room.settings` 값이 유효한지 확인한다.
+7. `Room.settings`를 복사해 현재 게임용 `Game.settings`를 만든다.
 8. `ScoreBoard`를 0점으로 초기화한다.
 9. `Game`을 생성한다.
 10. `Room.currentGame`에 연결한다.
@@ -206,16 +208,17 @@
 1. current round의 `drawerOrder`와 `turnCursor`를 기준으로 drawer를 결정한다.
 2. `Turn`을 생성한다.
 3. `Turn.state = WORD_CHOICE`로 둔다.
-4. `Turn.phase = WordChoicePhase(wordChoices, startedAt, endsAt)`로 둔다.
+4. `Turn.phase = null`로 두고, word choice 창 오픈 시점에 `WordChoicePhase`를 만든다.
 5. `correctUserIds = empty`로 둔다.
 6. `pendingScores = empty`로 둔다.
 7. `Round.currentTurn`에 연결한다.
 8. `Room.version`을 증가시킨다.
 9. same room participant 전체에게 `304 TURN_STARTED`를 발행한다.
 10. 이때 `304 TURN_STARTED`에는 `gameId`, `round`, `turn`, `turnId`, `drawerUserId`를 담는다.
-11. 2초 뒤 drawer 1명에게만 `406 WORD_CHOICES`를 발행한다.
-12. 같은 시점에 나머지 participant에게 `311 TURN_STATE(phase=WORD_CHOICES_GIVEN, timeoutSec=...)`를 발행한다.
-13. `wordChoiceSec` 뒤 word choice timeout 작업을 예약한다.
+11. 2초 뒤 `Turn.phase = WordChoicePhase(wordChoices, startedAt, endsAt)`를 만든다.
+12. 같은 시점에 drawer 1명에게만 `406 WORD_CHOICES`를 발행한다.
+13. 같은 시점에 나머지 participant에게 `311 TURN_STATE(phase=WORD_CHOICES_GIVEN, timeoutSec=...)`를 발행한다.
+14. `406 WORD_CHOICES`를 발행한 시점부터 `wordChoiceSec` 뒤 word choice timeout 작업을 예약한다.
 
 ### 7.2 explicit word choice
 
@@ -317,7 +320,7 @@
 6. 정답이 아니면 일반 message로 처리한다.
 7. 아직 정답 처리되지 않은 사용자 메시지면 same room participant 전체에게 `403 GUESS_MESSAGE`를 발행한다.
 8. 이미 정답 처리된 사용자 메시지면 현재 턴의 정답자 집합 + drawer에게만 `403 GUESS_MESSAGE`를 발행한다.
-9. 이때 `403 GUESS_MESSAGE`에는 `userId`, `name`, `text`, `turnId`를 담는다.
+9. 이때 `403 GUESS_MESSAGE`에는 `userId`, `nickname`, `text`, `turnId`를 담는다.
 
 ### 9.2 correct guess
 
@@ -337,7 +340,7 @@
 8. drawer가 받을 예정 점수도 turn 내부 보상 상태에 기록한다.
 9. `Room.version`을 증가시킨다.
 10. same room participant 전체에게 `404 GUESS_CORRECT`를 발행한다.
-11. 이때 `404 GUESS_CORRECT`에는 `userId`, `name`, `turnId`, 이번 턴 예정 점수 정보를 담는다.
+11. 이때 `404 GUESS_CORRECT`에는 `userId`, `nickname`, `turnId`를 담는다.
 12. 모드와 현재 정답자 상태를 보고 turn 종료 여부를 판단한다.
 13. turn 종료가 필요하면 즉시 turn end 작업을 이어서 실행한다.
 
@@ -379,8 +382,9 @@
 8. `earnedScores`에는 이번 턴에서 누가 몇 점을 얻었는지 담는다.
 9. 정답자가 1명 이상이면 drawer도 이번 턴 점수를 얻는다.
 10. `305 TURN_ENDED`를 최소 2초간 보여줄 수 있도록 2초 뒤 후속 작업을 예약한다.
-11. 다음 턴이 있으면 표시 구간 이후 3초 뒤 다음 word choice turn 시작 작업을 예약한다.
-12. 라운드가 끝났으면 표시 구간 이후 round end 작업을 이어서 실행한다.
+11. 다음 턴이 있으면 표시 구간 이후 즉시 다음 word choice turn 시작 작업을 예약한다.
+12. 그러면 다음 turn 시작 안내(`304`)가 나가고, 그로부터 2초 뒤 단어 선택 창이 열린다.
+13. 라운드가 끝났으면 표시 구간 이후 round end 작업을 이어서 실행한다.
 
 ---
 
@@ -430,8 +434,9 @@
 
 흐름:
 
-1. `Game.status = ENDED`로 바꾸거나 room lobby 복귀 정책을 적용한다.
-2. private/random 정책에 따라 room 유지 여부를 판단한다.
+1. `PRIVATE` room이면 `Game.status = ENDED`, `Room.currentGame = null`, `Room.state = LOBBY`로 바꾼다.
+2. `RANDOM` room이고 participant가 2명 이상이면 즉시 다음 게임을 시작한다.
+3. `RANDOM` room인데 participant가 1명 이하이면 `Game.status = ENDED`, `Room.currentGame = null`, `Room.state = LOBBY`로 바꾼다.
 
 ---
 
@@ -449,7 +454,7 @@
 2. `PRIVATE` room이고 나간 사용자가 host면, 남아 있는 participant 입장 순서 기준 다음 index의 participant를 새 host로 지정한다.
 3. `Room.version`을 증가시킨다.
 4. 남아 있는 participant들에게 `309 ROOM_LEFT`를 발행한다.
-5. 이때 `309 ROOM_LEFT`에는 `userId`, `name`을 담는다.
+5. 이때 `309 ROOM_LEFT`에는 `userId`를 담는다.
 6. room empty 여부를 판단한다.
 
 ### 13.2 drawer leave
@@ -464,7 +469,7 @@
 2. `PRIVATE` room이고 나간 사용자가 host면, 남아 있는 participant 입장 순서 기준 다음 index의 participant를 새 host로 지정한다.
 3. `Room.version`을 증가시킨다.
 4. 남아 있는 participant들에게 `309 ROOM_LEFT`를 발행한다.
-5. 이때 `309 ROOM_LEFT`에는 `userId`, `name`을 담는다.
+5. 이때 `309 ROOM_LEFT`에는 `userId`를 담는다.
 6. 종료 사유를 `DRAWER_LEFT`로 확정한다.
 7. 즉시 turn end 작업을 이어서 실행한다.
 
@@ -479,7 +484,11 @@
 1. participant를 제거한다.
 2. `Room.version`을 증가시킨다.
 3. room empty 상태를 기록한다.
-4. private/random 정책에 맞춰 즉시 삭제 또는 idle cleanup 후보로 둔다.
+4. empty room이면 room type에 맞는 삭제 대기 작업을 예약한다.
+5. `RANDOM` room은 짧은 삭제 대기 후 close한다.
+6. `PRIVATE` room은 더 긴 삭제 대기 후 close한다.
+7. 예약된 작업 시점에도 여전히 empty면 room을 삭제한다.
+8. 삭제 대기 중 다시 participant가 들어오면 예약된 삭제는 stale check로 무시한다.
 
 ---
 
@@ -493,9 +502,11 @@
 
 흐름:
 
-1. 현재 room authoritative state를 읽는다.
-2. `Room`, `Game`, `Round`, `Turn`, `Canvas`, `ScoreBoard`의 현재 값을 `408 GAME_SNAPSHOT` payload로 매핑한다.
-3. 요청자 1명에게 `408 GAME_SNAPSHOT`을 발행한다.
+1. 요청 사용자가 현재 participant가 아니면 요청을 무시한다.
+2. snapshot 요청도 room mailbox로 넣는다.
+3. mailbox 안에서 현재 room authoritative state를 읽는다.
+4. `Room`, `Game`, `Round`, `Turn`, `Canvas`, `ScoreBoard`의 현재 값을 `408 GAME_SNAPSHOT` payload로 매핑한다.
+5. 요청자 1명에게 `408 GAME_SNAPSHOT`을 발행한다.
 
 ---
 

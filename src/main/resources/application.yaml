@@ -8,3 +8,11 @@ engine:
 room-runner:
   workers: 4
   scheduler-workers: 2
+
+session-presence:
+  redis-key-prefix: "session:presence:user:"
+  cache-ttl-seconds: 5
+
+grpc:
+  server:
+    port: 9090

@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package kopic.ge.lobby.v1;
+
+option java_multiple_files = true;
+option java_package = "io.jhpark.kopic.ge.rpc.lobby.v1";
+option java_outer_classname = "GeLobbyRpcProto";
+
+service LobbyRpcService {
+  rpc CreatePrivateRoom(CreatePrivateRoomRequestMessage) returns (PrivateRoomCreatedMessage);
+  rpc CreateRandomRoom(CreateRandomRoomRequestMessage) returns (RandomRoomCreatedMessage);
+  rpc TryJoinRandomRoom(TryJoinRandomRoomRequestMessage) returns (QuickJoinResultMessage);
+}
+
+message CreatePrivateRoomRequestMessage {
+  string engine_id = 1;
+  string user_id = 2;
+  string nickname = 3;
+  int32 capacity = 4;
+}
+
+message CreateRandomRoomRequestMessage {
+  string engine_id = 1;
+  string user_id = 2;
+  string nickname = 3;
+}
+
+message TryJoinRandomRoomRequestMessage {
+  string engine_id = 1;
+  string room_id = 2;
+  string user_id = 3;
+  string nickname = 4;
+}
+
+message RoomSummaryMessage {
+  string room_id = 1;
+  string room_code = 2;
+  string room_type = 3;
+  string owner_engine_id = 4;
+  string host_user_id = 5;
+  int32 capacity = 6;
+  int64 version = 7;
+}
+
+message PrivateRoomCreatedMessage {
+  RoomSummaryMessage room = 1;
+}
+
+message RandomRoomCreatedMessage {
+  RoomSummaryMessage room = 1;
+}
+
+message QuickJoinResultMessage {
+  bool joined = 1;
+  bool created = 2;
+  string reason = 3;
+  RoomSummaryMessage room = 4;
+}

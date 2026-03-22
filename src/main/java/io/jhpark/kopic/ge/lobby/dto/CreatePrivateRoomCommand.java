@@ -2,7 +2,7 @@ package io.jhpark.kopic.ge.lobby.dto;
 
 public record CreatePrivateRoomCommand(
 	String userId,
-	String name,
+	String nickname,
 	int capacity
 ) {
 }

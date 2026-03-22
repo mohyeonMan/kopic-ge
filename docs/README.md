@@ -12,7 +12,7 @@
 6. [ko-pic GE Package.md](./ko-pic%20GE%20Package.md)
 7. [ko-pic GE Internal API Contract v0.md](./ko-pic%20GE%20Internal%20API%20Contract%20v0.md)
 8. [ko-pic Lobby-GE Internal API Contract v0.md](./ko-pic%20Lobby-GE%20Internal%20API%20Contract%20v0.md)
-9. [ko-pic GE Domain Model v0.md](./ko-pic%20GE%20Domain%20Model%20v0.md)
+9. [ko-pic GE Domain Model v0.1.md](./ko-pic%20GE%20Domain%20Model%20v0.1.md)
 10. [ko-pic Lobby Package.md](./ko-pic%20Lobby%20Package.md)
 
 ## 이번에 추가된 GE 문서
@@ -23,7 +23,7 @@
   - 내부 API/포트 경계
   - 구현 우선순위
 
-- `ko-pic GE Domain Model v0.md`
+- `ko-pic GE Domain Model v0.1.md`
   - 최소 aggregate/value object
   - command/event 모델
   - 상태 전이/에러 코드 매핑

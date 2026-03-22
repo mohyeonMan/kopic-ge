@@ -38,6 +38,10 @@
 
 ## 3.1 Private Room 생성
 
+gRPC service / method:
+
+- `kopic.ge.lobby.v1.LobbyRpcService/CreatePrivateRoom`
+
 Lobby 포트:
 
 ```java
@@ -47,7 +51,7 @@ PrivateRoomCreated createPrivateRoom(String engineId, CreatePrivateRoomCommand c
 현재 command:
 
 ```java
-record CreatePrivateRoomCommand(String userId, String name)
+record CreatePrivateRoomCommand(String userId, String nickname)
 ```
 
 ### v0 확정(정책 반영)
@@ -56,7 +60,7 @@ record CreatePrivateRoomCommand(String userId, String name)
 - 따라서 command는 아래로 확장 권장:
 
 ```java
-record CreatePrivateRoomCommand(String userId, String name, int capacity)
+record CreatePrivateRoomCommand(String userId, String nickname, int capacity)
 ```
 
 검증:
@@ -71,6 +75,10 @@ record CreatePrivateRoomCommand(String userId, String name, int capacity)
 
 ## 3.2 Random Room 생성
 
+gRPC service / method:
+
+- `kopic.ge.lobby.v1.LobbyRpcService/CreateRandomRoom`
+
 Lobby 포트:
 
 ```java
@@ -80,7 +88,7 @@ RandomRoomCreated createRandomRoom(String engineId, CreateRandomRoomCommand comm
 command:
 
 ```java
-record CreateRandomRoomCommand(String userId, String name)
+record CreateRandomRoomCommand(String userId, String nickname)
 ```
 
 정책:
@@ -94,6 +102,10 @@ record CreateRandomRoomCommand(String userId, String name)
 
 ## 3.3 Random Quick-Join 승인
 
+gRPC service / method:
+
+- `kopic.ge.lobby.v1.LobbyRpcService/TryJoinRandomRoom`
+
 Lobby 포트:
 
 ```java
@@ -103,7 +115,7 @@ QuickJoinResult tryJoinRandomRoom(String engineId, String roomId, JoinUserComman
 command:
 
 ```java
-record JoinUserCommand(String userId, String name)
+record JoinUserCommand(String userId, String nickname)
 ```
 
 응답:

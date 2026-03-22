@@ -133,14 +133,14 @@ request:
 ```json
 {
   "userId": "u-1",
-  "name": "jihoon"
+  "nickname": "jihoon"
 }
 ```
 
 필드:
 
 - `userId`: string, required
-- `name`: string, required
+- `nickname`: string, required
 - private room의 초기 게임 설정은 request에서 받지 않는다.
 - owner GE가 기본 설정으로 room을 생성한다.
 
@@ -183,14 +183,14 @@ request:
 ```json
 {
   "userId": "u-2",
-  "name": "guest-1"
+  "nickname": "guest-1"
 }
 ```
 
 필드:
 
 - `userId`: string, required
-- `name`: string, required
+- `nickname`: string, required
 
 response `200 OK`:
 
