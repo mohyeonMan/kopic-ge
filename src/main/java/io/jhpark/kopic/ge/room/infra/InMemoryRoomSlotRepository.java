@@ -21,6 +21,14 @@ public class InMemoryRoomSlotRepository implements RoomSlotRepository {
 	}
 
 	@Override
+	public int countRoomsByOwnerEngineId(String engineId) {
+		return (int) slots.values().stream()
+			.map(RoomSlot::room)
+			.filter(room -> engineId.equals(room.getOwnerEngineId()))
+			.count();
+	}
+
+	@Override
 	public void saveSlot(RoomSlot slot) {
 		log.debug("saving room slot. roomId={}", slot.roomId());
 		slots.put(slot.roomId(), slot);

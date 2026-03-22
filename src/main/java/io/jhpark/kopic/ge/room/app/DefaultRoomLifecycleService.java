@@ -1,5 +1,10 @@
 package io.jhpark.kopic.ge.room.app;
 
+import io.jhpark.kopic.ge.directory.app.EnginePresencePublisher;
+import io.jhpark.kopic.ge.directory.app.RandomJoinableIndexUpdater;
+import io.jhpark.kopic.ge.directory.app.RoomCodeIndexUpdater;
+import io.jhpark.kopic.ge.directory.app.RoomRoutingUpdater;
+import io.jhpark.kopic.ge.directory.domain.EngineStatus;
 import io.jhpark.kopic.ge.room.domain.EndMode;
 import io.jhpark.kopic.ge.room.domain.GameSettings;
 import io.jhpark.kopic.ge.room.domain.Participant;
@@ -13,6 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -24,9 +30,26 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 	private static final int PRIVATE_MAX_CAPACITY = 8;
 
 	private final RoomSlotRepository roomSlotRepository;
+	private final RoomRoutingUpdater roomRoutingUpdater;
+	private final RoomCodeIndexUpdater roomCodeIndexUpdater;
+	private final RandomJoinableIndexUpdater randomJoinableIndexUpdater;
+	private final EnginePresencePublisher enginePresencePublisher;
+	private final String engineEndpoint;
 
-	public DefaultRoomLifecycleService(RoomSlotRepository roomSlotRepository) {
+	public DefaultRoomLifecycleService(
+		RoomSlotRepository roomSlotRepository,
+		RoomRoutingUpdater roomRoutingUpdater,
+		RoomCodeIndexUpdater roomCodeIndexUpdater,
+		RandomJoinableIndexUpdater randomJoinableIndexUpdater,
+		EnginePresencePublisher enginePresencePublisher,
+		@Value("${engine.endpoint:http://localhost:8080}") String engineEndpoint
+	) {
 		this.roomSlotRepository = roomSlotRepository;
+		this.roomRoutingUpdater = roomRoutingUpdater;
+		this.roomCodeIndexUpdater = roomCodeIndexUpdater;
+		this.randomJoinableIndexUpdater = randomJoinableIndexUpdater;
+		this.enginePresencePublisher = enginePresencePublisher;
+		this.engineEndpoint = engineEndpoint;
 	}
 
 	@Override
@@ -54,6 +77,9 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 			capacity
 		);
 		roomSlotRepository.saveSlot(new RoomSlot(room));
+		roomRoutingUpdater.putOwnerEngine(room.getRoomId(), engineId);
+		roomCodeIndexUpdater.putRoomCode(room.getRoomCode(), room.getRoomId());
+		publishPresence(engineId);
 		log.info("private room created. roomId={}, ownerEngineId={}, hostUserId={}, capacity={}",
 			room.getRoomId(), engineId, userId, capacity);
 		return room;
@@ -80,6 +106,9 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 			RANDOM_CAPACITY
 		);
 		roomSlotRepository.saveSlot(new RoomSlot(room));
+		roomRoutingUpdater.putOwnerEngine(room.getRoomId(), engineId);
+		randomJoinableIndexUpdater.addJoinableRoom(room.getRoomId(), room.getParticipants().size());
+		publishPresence(engineId);
 		log.info("random room created. roomId={}, ownerEngineId={}, userId={}",
 			room.getRoomId(), engineId, userId);
 		return room;
@@ -87,7 +116,30 @@ public class DefaultRoomLifecycleService implements RoomLifecycleService {
 
 	@Override
 	public void closeRoom(String roomId) {
+		String[] ownerEngineHolder = new String[1];
+		roomSlotRepository.findRoomByRoomId(roomId).ifPresent(room -> {
+			ownerEngineHolder[0] = room.getOwnerEngineId();
+			if (room.getRoomCode() != null) {
+				roomCodeIndexUpdater.removeRoomCode(room.getRoomCode());
+			}
+			if (room.getRoomType() == RoomType.RANDOM) {
+				randomJoinableIndexUpdater.removeJoinableRoom(roomId);
+			}
+			roomRoutingUpdater.removeOwnerEngine(roomId);
+		});
 		log.info("closing room. roomId={}", roomId);
 		roomSlotRepository.deleteSlot(roomId);
+		if (ownerEngineHolder[0] != null) {
+			publishPresence(ownerEngineHolder[0]);
+		}
+	}
+
+	private void publishPresence(String engineId) {
+		enginePresencePublisher.publish(
+			engineId,
+			engineEndpoint,
+			EngineStatus.ACTIVE,
+			roomSlotRepository.countRoomsByOwnerEngineId(engineId)
+		);
 	}
 }

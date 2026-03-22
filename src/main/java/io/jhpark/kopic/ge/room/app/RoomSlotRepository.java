@@ -11,6 +11,8 @@ public interface RoomSlotRepository {
 		return findSlotByRoomId(roomId).map(RoomSlot::room);
 	}
 
+	int countRoomsByOwnerEngineId(String engineId);
+
 	void saveSlot(RoomSlot slot);
 
 	void deleteSlot(String roomId);
