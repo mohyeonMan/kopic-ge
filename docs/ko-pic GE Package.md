@@ -142,9 +142,16 @@ io.jhpark.kopic.ge
 
 즉 thread-safety의 핵심은 immutable 복사가 아니라 `room별 단일 실행 보장`이다.
 
-### 4. handler는 분기와 job 조립만 담당한다
+### 4. WS lifecycle는 GE 내부 room join/leave로 변환한다
+
+- WS는 transport/session 관점에서 `JOIN`, `LEAVE` lifecycle 이벤트를 GE에 전달한다.
+- GE는 이를 내부적으로 room 도메인 의미인 `ROOM_JOIN`, `ROOM_LEAVE`로 취급한다.
+- 즉 WS의 연결 사건을 그대로 쓰지 않고, GE 안에서는 방 참여/이탈 의미를 기준으로 본다.
+
+### 5. handler는 분기와 job 조립만 담당한다
 
 - `EngineCommandDispatcher`는 event code를 `RoomEventType`으로 변환한다.
+- session lifecycle은 `JOIN/LEAVE`를 내부 `ROOM_JOIN/ROOM_LEAVE`로 변환한다.
 - registry에서 해당 handler를 찾는다.
 - handler는 payload/context를 읽고 room job을 만든다.
 - 실제 room 상태 수정은 직접 하지 않고 `RoomRunner.submit(...)`에 맡긴다.
@@ -156,7 +163,7 @@ io.jhpark.kopic.ge
 - `runner = room mailbox 적재`
 - `worker = 실제 실행`
 
-### 5. 권한 검증은 현재 room 상태 기준으로 mailbox 안에서 수행한다
+### 6. 권한 검증은 현재 room 상태 기준으로 mailbox 안에서 수행한다
 
 - host 여부
 - drawer 여부
@@ -172,7 +179,7 @@ io.jhpark.kopic.ge
 - null/빈 문자열 확인
 - transport-level rate-limit
 
-### 6. follow-up은 다시 runner 경로로 들어와야 한다
+### 7. follow-up은 다시 runner 경로로 들어와야 한다
 
 job 실행 결과로 아래 두 가지가 생길 수 있다.
 
@@ -195,7 +202,7 @@ job 실행 결과로 아래 두 가지가 생길 수 있다.
 - 라운드 종료 -> 4초 뒤 다음 라운드
 - 게임 종료 -> 8초 뒤 결과 화면 종료
 
-### 7. RoomJobResult는 호출자용 결과가 아니라 worker 내부 제어 신호다
+### 8. RoomJobResult는 호출자용 결과가 아니라 worker 내부 제어 신호다
 
 `RoomJobResult`는 `future` 대체물이 아니다.
 호출자가 기다리기 위한 값도 아니다.
@@ -209,7 +216,7 @@ job 실행 결과로 아래 두 가지가 생길 수 있다.
 즉 비동기 구조와 충돌하지 않는다.
 호출자는 여전히 fire-and-forget이고, `RoomJobResult`는 worker 내부 후처리용 값이다.
 
-### 8. room 삭제 정책은 도메인 정책과 운영 정책을 분리해 본다
+### 9. room 삭제 정책은 도메인 정책과 운영 정책을 분리해 본다
 
 현재 논의 기준으로는 아래가 자연스럽다.
 
