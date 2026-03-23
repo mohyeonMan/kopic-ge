@@ -128,7 +128,7 @@ drawer가 `wordChoiceSec` 내 미선택이면 서버가 랜덤 선택 후 턴 �
 전환 지연(서버 주도, 클라 ACK 대기 없음):
 
 - 턴 종료 후 다음 턴 시작까지: 3초
-- 라운드 종료 후 다음 라운드 시작까지: 4초
+- 라운드 종료 후 다음 라운드 시작까지: 즉시
 - 게임 종료 후 결과 화면 유지: 8초
 
 drawer 이탈:
@@ -198,7 +198,7 @@ MVP 점수(더미):
 턴 종료 표시:
 
 - `TURN_ENDED`에는 종료 사유뿐 아니라 이번 턴 획득 점수와 최신 누적 scoreboard를 함께 포함한다.
-- `TURN_ENDED` 이후 최소 2초간 이번 턴 결과를 보여준 뒤에만 다음 턴/다음 라운드/게임 종료 후속 작업으로 넘어간다.
+- `TURN_ENDED` 이후 최소 3초간 이번 턴 결과를 보여준 뒤에만 다음 턴/다음 라운드/게임 종료 후속 작업으로 넘어간다.
 
 ---
 
@@ -226,7 +226,7 @@ MVP tool:
 스트로크 제한:
 
 - 1개 `DRAW_STROKE`의 `points` 최대 64개
-- 사용자당 `DRAW_STROKE` 초당 최대 20회
+- 사용자당 `DRAW_STROKE` 초당 최대 30회
 - 메시지 최대 크기 8KB
 
 `DRAW_CLEAR`:
@@ -247,8 +247,8 @@ MVP 정책:
 - 연결 끊김 시 즉시 leave 처리(유예시간 없음)
 - 재접속 복구 정책(동일 사용자 식별/유예 재진입)은 후속 버전에서 정의
 - 마지막 participant가 떠난 뒤 room 정리는 owner GE가 담당한다.
-- `private` room은 empty 상태가 되더라도 즉시 제거하지 않고 idle TTL 이후 정리할 수 있다.
-- `random` room은 empty 상태가 되면 즉시 제거하거나 매우 짧은 TTL 후 정리할 수 있다.
+- `private` room은 empty 상태가 되면 30초 뒤 정리한다.
+- `random` room은 empty 상태가 되면 즉시 정리한다.
 - `private` room에서 host가 나가면, 남아 있는 participant 입장 순서 기준 다음 index의 participant가 새 host가 된다.
 
 ---

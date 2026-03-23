@@ -4,8 +4,6 @@ import io.grpc.stub.StreamObserver;
 import io.jhpark.kopic.ge.lobby.dto.QuickJoinResult;
 import io.jhpark.kopic.ge.room.app.RoomService;
 import io.jhpark.kopic.ge.room.app.RoomSlotRepository;
-import io.jhpark.kopic.ge.room.domain.Participant;
-import io.jhpark.kopic.ge.room.domain.ParticipantStatus;
 import io.jhpark.kopic.ge.room.domain.Room;
 import io.jhpark.kopic.ge.rpc.lobby.v1.CreatePrivateRoomRequestMessage;
 import io.jhpark.kopic.ge.rpc.lobby.v1.CreateRandomRoomRequestMessage;
@@ -72,11 +70,9 @@ public class LobbyRpcGrpcService extends LobbyRpcServiceGrpc.LobbyRpcServiceImpl
 			if (!room.getParticipants().containsKey(request.getUserId()) && room.getParticipants().size() >= room.getCapacity()) {
 				throw new IllegalStateException("room is full");
 			}
-			room.getParticipants().put(
-				request.getUserId(),
-				new Participant(request.getUserId(), request.getNickname(), ParticipantStatus.ACTIVE)
-			);
-			room.increaseVersion();
+
+			// This RPC only checks join availability.
+			// Actual participant insertion is handled by WS lifecycle JOIN flow.
 			result = new QuickJoinResult(true, false, null, room);
 		} catch (IllegalStateException roomFull) {
 			result = new QuickJoinResult(false, false, "ROOM_FULL", null);

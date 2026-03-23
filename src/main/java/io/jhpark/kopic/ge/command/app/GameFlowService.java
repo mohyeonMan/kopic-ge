@@ -1,5 +1,7 @@
 package io.jhpark.kopic.ge.command.app;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -52,8 +54,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class GameFlowService {
 
-	private static final Duration PRIVATE_EMPTY_ROOM_CLOSE_DELAY = Duration.ofMinutes(5);
-	private static final Duration RANDOM_EMPTY_ROOM_CLOSE_DELAY = Duration.ofSeconds(30);
+	private static final Duration PRIVATE_EMPTY_ROOM_CLOSE_DELAY = Duration.ofSeconds(30);
+	private static final Duration RANDOM_EMPTY_ROOM_CLOSE_DELAY = Duration.ZERO;
+	private static final int GUESS_RATE_LIMIT_PER_SEC = 5;
+	private static final int DRAW_STROKE_RATE_LIMIT_PER_SEC = 30;
+	private static final int TURN_END_RESULT_VIEW_SEC = 3;
+	private static final Duration RATE_WINDOW_TTL = Duration.ofSeconds(120);
 	private static final List<String> WORD_POOL = List.of(
 		"apple", "banana", "cat", "train", "ocean",
 		"camera", "bridge", "guitar", "rocket", "pencil"
@@ -62,6 +68,9 @@ public class GameFlowService {
 	private final RoomService roomService;
 	private final BroadcastService broadcastService;
 	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final Cache<String, RateWindow> rateWindows = Caffeine.newBuilder()
+		.expireAfterAccess(RATE_WINDOW_TTL)
+		.build();
 
 	public GameFlowService(
 		RoomService roomService,
@@ -136,6 +145,9 @@ public class GameFlowService {
 	}
 
 	private EngineAck handleDrawStroke(RoomEventContext context) {
+		if (!allowPerSecond("draw:" + context.userId(), DRAW_STROKE_RATE_LIMIT_PER_SEC)) {
+			return EngineAck.rejectedAck(EngineAckReason.REJECTED);
+		}
 		try {
 			String turnId = context.payload().path("turnId").asText(null);
 			Stroke stroke = parseStroke(context.payload().path("stroke"));
@@ -158,6 +170,9 @@ public class GameFlowService {
 	}
 
 	private EngineAck handleGuessSubmit(RoomEventContext context) {
+		if (!allowPerSecond("guess:" + context.userId(), GUESS_RATE_LIMIT_PER_SEC)) {
+			return EngineAck.rejectedAck(EngineAckReason.REJECTED);
+		}
 		String text = context.payload().path("text").asText(null);
 		String turnId = context.payload().path("turnId").asText(null);
 		if (text == null || text.isBlank()) {
@@ -541,11 +556,11 @@ public class GameFlowService {
 			Round round = game.currentRound();
 			if (round.getTurnCursor() + 1 < round.getDrawerOrder().size()) {
 				return RoomJobResult.keepWith(
-					RoomFollowUp.delayed(Duration.ofSeconds(2), startWordChoiceTurnJob(round.getRoundNo(), round.getTurnCursor() + 1))
+					RoomFollowUp.delayed(Duration.ofSeconds(TURN_END_RESULT_VIEW_SEC), startWordChoiceTurnJob(round.getRoundNo(), round.getTurnCursor() + 1))
 				);
 			}
 			return RoomJobResult.keepWith(
-				RoomFollowUp.delayed(Duration.ofSeconds(2), roundEndJob(round.getRoundNo()))
+				RoomFollowUp.delayed(Duration.ofSeconds(TURN_END_RESULT_VIEW_SEC), roundEndJob(round.getRoundNo()))
 			);
 		};
 	}
@@ -571,7 +586,7 @@ public class GameFlowService {
 
 			if (expectedRoundNo < game.settings().roundCount()) {
 				return RoomJobResult.keepWith(
-					RoomFollowUp.delayed(Duration.ofSeconds(4), startRoundJob(expectedRoundNo + 1))
+					RoomFollowUp.immediate(startRoundJob(expectedRoundNo + 1))
 				);
 			}
 			return RoomJobResult.keepWith(RoomFollowUp.immediate(gameEndJob()));
@@ -698,23 +713,32 @@ public class GameFlowService {
 				return RoomJobResult.keep();
 			}
 			Turn turn = game.currentRound().getCurrentTurn();
-			if (turn.getState() != TurnState.DRAWING || turn.getDrawerUserId().equals(userId)) {
+			if (turn.getState() != TurnState.DRAWING) {
 				return RoomJobResult.keep();
 			}
 			if (expectedTurnId != null && !expectedTurnId.isBlank() && !turn.getTurnId().equals(expectedTurnId)) {
+				return RoomJobResult.keep();
+			}
+			Participant participant = room.getParticipants().get(userId);
+			String nickname = participant == null ? userId : participant.nickname();
+			boolean drawer = turn.getDrawerUserId().equals(userId);
+
+			if (drawer) {
+				broadcastService.toUsers(
+					correctUsersAndDrawer(turn),
+					envelope(OutboundRoomEventType.GUESS_MESSAGE, guessMessagePayload(userId, nickname, text, turn.getTurnId()), null)
+				);
 				return RoomJobResult.keep();
 			}
 
 			DrawingPhase drawingPhase = requireDrawingPhase(turn.getPhase());
 			String normalizedText = normalizeGuess(text);
 			String normalizedAnswer = normalizeGuess(drawingPhase.getSecretWord());
-			Participant participant = room.getParticipants().get(userId);
-			String nickname = participant == null ? userId : participant.nickname();
 
 			if (!normalizedText.equals(normalizedAnswer)) {
 				ServerEnvelope envelope = envelope(OutboundRoomEventType.GUESS_MESSAGE, guessMessagePayload(userId, nickname, text, turn.getTurnId()), null);
 				if (turn.getCorrectUserIds().contains(userId)) {
-					broadcastService.toUsers(correctUsersAndDrawer(room, turn), envelope);
+					broadcastService.toUsers(correctUsersAndDrawer(turn), envelope);
 				} else {
 					broadcastService.toUsers(room.getParticipants().keySet(), envelope);
 				}
@@ -723,7 +747,7 @@ public class GameFlowService {
 
 			if (turn.getCorrectUserIds().contains(userId)) {
 				broadcastService.toUsers(
-					correctUsersAndDrawer(room, turn),
+					correctUsersAndDrawer(turn),
 					envelope(OutboundRoomEventType.GUESS_MESSAGE, guessMessagePayload(userId, nickname, text, turn.getTurnId()), null)
 				);
 				return RoomJobResult.keep();
@@ -984,7 +1008,7 @@ public class GameFlowService {
 		return result;
 	}
 
-	private List<String> correctUsersAndDrawer(Room room, Turn turn) {
+	private List<String> correctUsersAndDrawer(Turn turn) {
 		List<String> userIds = new ArrayList<>(turn.getCorrectUserIds());
 		if (!userIds.contains(turn.getDrawerUserId())) {
 			userIds.add(turn.getDrawerUserId());
@@ -1181,6 +1205,9 @@ public class GameFlowService {
 			throw new IllegalArgumentException("invalid stroke payload");
 		}
 		String strokeId = node.get(0).asText();
+		if (strokeId == null || strokeId.isBlank()) {
+			throw new IllegalArgumentException("invalid stroke id");
+		}
 		StrokeTool tool = node.get(1).asInt() == 2 ? StrokeTool.ERASER : StrokeTool.PEN;
 		int colorIndex = node.get(2).asInt();
 		int size = node.get(3).asInt();
@@ -1193,19 +1220,45 @@ public class GameFlowService {
 			if (!pointNode.isArray() || pointNode.size() != 2) {
 				throw new IllegalArgumentException("invalid point");
 			}
-			points.add(new Stroke.Point(pointNode.get(0).asDouble(), pointNode.get(1).asDouble()));
+			double x = pointNode.get(0).asDouble();
+			double y = pointNode.get(1).asDouble();
+			if (!hasAtMostScale(x, 5) || !hasAtMostScale(y, 5)) {
+				throw new IllegalArgumentException("point precision must be <= 5");
+			}
+			points.add(new Stroke.Point(x, y));
 		}
 		return new Stroke(strokeId, tool, colorIndex, size, points);
 	}
 
 	private GameSettings parseSettings(JsonNode payload) {
+		if (payload == null || !payload.isObject()) {
+			throw new IllegalArgumentException("settings payload must be an object");
+		}
+		int roundCount = payload.path("roundCount").asInt(3);
+		int drawSec = payload.path("drawSec").asInt(20);
+		int wordChoiceSec = payload.path("wordChoiceSec").asInt(10);
+		int wordChoiceCount = payload.path("wordChoiceCount").asInt(3);
+		DrawerOrderMode drawerOrderMode = DrawerOrderMode.valueOf(payload.path("drawerOrderMode").asText("JOIN_ORDER"));
+		EndMode endMode = EndMode.valueOf(payload.path("endMode").asText("FIRST_CORRECT"));
+		if (roundCount < 3 || roundCount > 10) {
+			throw new IllegalArgumentException("roundCount must be 3..10");
+		}
+		if (drawSec < 20 || drawSec > 60) {
+			throw new IllegalArgumentException("drawSec must be 20..60");
+		}
+		if (wordChoiceSec < 5 || wordChoiceSec > 15) {
+			throw new IllegalArgumentException("wordChoiceSec must be 5..15");
+		}
+		if (wordChoiceCount < 3 || wordChoiceCount > 5) {
+			throw new IllegalArgumentException("wordChoiceCount must be 3..5");
+		}
 		return new GameSettings(
-			payload.path("roundCount").asInt(3),
-			payload.path("drawSec").asInt(20),
-			payload.path("wordChoiceSec").asInt(10),
-			payload.path("wordChoiceCount").asInt(3),
-			DrawerOrderMode.valueOf(payload.path("drawerOrderMode").asText("JOIN_ORDER")),
-			EndMode.valueOf(payload.path("endMode").asText("FIRST_CORRECT"))
+			roundCount,
+			drawSec,
+			wordChoiceSec,
+			wordChoiceCount,
+			drawerOrderMode,
+			endMode
 		);
 	}
 
@@ -1218,6 +1271,28 @@ public class GameFlowService {
 			.replace("?", "");
 	}
 
+	private boolean hasAtMostScale(double value, int scale) {
+		double multiplier = Math.pow(10, scale);
+		double rounded = Math.round(value * multiplier) / multiplier;
+		return Math.abs(value - rounded) < 1e-10;
+	}
+
+	private boolean allowPerSecond(String key, int limit) {
+		long epochSecond = Instant.now().getEpochSecond();
+		RateWindow window = rateWindows.get(key, ignored -> new RateWindow(epochSecond));
+		synchronized (window) {
+			if (window.epochSecond != epochSecond) {
+				window.epochSecond = epochSecond;
+				window.count = 0;
+			}
+			if (window.count >= limit) {
+				return false;
+			}
+			window.count++;
+			return true;
+		}
+	}
+
 	private void commitPendingScores(Room room, Turn turn) {
 		if (turn.getPendingScores().isEmpty()) {
 			return;
@@ -1225,6 +1300,17 @@ public class GameFlowService {
 		Map<String, Integer> scores = room.getCurrentGame().scores().scores();
 		for (Map.Entry<String, Integer> entry : turn.getPendingScores().entrySet()) {
 			scores.merge(entry.getKey(), entry.getValue(), Integer::sum);
+		}
+	}
+
+	private static final class RateWindow {
+
+		private long epochSecond;
+		private int count;
+
+		private RateWindow(long epochSecond) {
+			this.epochSecond = epochSecond;
+			this.count = 0;
 		}
 	}
 }

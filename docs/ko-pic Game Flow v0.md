@@ -55,8 +55,8 @@
 
 - 게임 시작 -> 첫 라운드 시작: 2초
 - 라운드 시작 -> 첫 word choice turn 시작: 2초
-- 턴 종료 -> 다음 턴 시작: 2초
-- 라운드 종료 -> 다음 라운드 시작: 4초
+- 턴 종료 -> 다음 턴 시작: 3초
+- 라운드 종료 -> 다음 라운드 시작: 즉시
 - 게임 종료 -> 결과 화면 유지: 8초
 
 ---
@@ -381,7 +381,7 @@
 7. 이때 `305 TURN_ENDED`에는 `gameId`, `round`, `turn`, `turnId`, `reason`, 이번 턴 `earnedScores`, 최신 scoreboard를 함께 담는다.
 8. `earnedScores`에는 이번 턴에서 누가 몇 점을 얻었는지 담는다.
 9. 정답자가 1명 이상이면 drawer도 이번 턴 점수를 얻는다.
-10. `305 TURN_ENDED`를 최소 2초간 보여줄 수 있도록 2초 뒤 후속 작업을 예약한다.
+10. `305 TURN_ENDED`를 최소 3초간 보여줄 수 있도록 3초 뒤 후속 작업을 예약한다.
 11. 다음 턴이 있으면 표시 구간 이후 즉시 다음 word choice turn 시작 작업을 예약한다.
 12. 그러면 다음 turn 시작 안내(`304`)가 나가고, 그로부터 2초 뒤 단어 선택 창이 열린다.
 13. 라운드가 끝났으면 표시 구간 이후 round end 작업을 이어서 실행한다.
@@ -403,7 +403,7 @@
 3. `Room.version`을 증가시킨다.
 4. same room participant 전체에게 `306 ROUND_ENDED`를 발행한다.
 5. 이때 `306 ROUND_ENDED`에는 `gameId`, `round`를 담는다.
-6. 다음 라운드가 있으면 4초 뒤 다음 round start 작업을 예약한다.
+6. 다음 라운드가 있으면 즉시 다음 round start 작업을 예약한다.
 7. 마지막 라운드면 즉시 game end 작업을 이어서 실행한다.
 
 ---
@@ -485,8 +485,8 @@
 2. `Room.version`을 증가시킨다.
 3. room empty 상태를 기록한다.
 4. empty room이면 room type에 맞는 삭제 대기 작업을 예약한다.
-5. `RANDOM` room은 짧은 삭제 대기 후 close한다.
-6. `PRIVATE` room은 더 긴 삭제 대기 후 close한다.
+5. `RANDOM` room은 즉시 close한다.
+6. `PRIVATE` room은 30초 뒤 close한다.
 7. 예약된 작업 시점에도 여전히 empty면 room을 삭제한다.
 8. 삭제 대기 중 다시 participant가 들어오면 예약된 삭제는 stale check로 무시한다.
 
